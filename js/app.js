@@ -1,553 +1,517 @@
 /**
- * NodeLink Status Page - Application JavaScript
- * Real-time monitoring for Akira Lavalink
+ * NodeLink Status Monitor
+ * Real-time WebSocket connection to Akira Lavalink
  */
 
-// ============================================
-// Configuration
-// ============================================
-const CONFIG = {
-    WS_URL: 'ws://212.132.120.102:12115/v4/websocket',
-    HTTP_URL: 'https://circulation-grocery-essay-gotten.trycloudflare.com',
-    AUTH: 'AkiraMusic',
-    USER_ID: 'status-page',
-    CLIENT_NAME: 'nodelink-status',
-    STATS_INTERVAL: 30000,
-    PING_INTERVAL: 5000,
-    RECONNECT_BASE_DELAY: 1000,
-    RECONNECT_MAX_DELAY: 30000,
-    MAX_LOGS: 100
-};
-
-// ============================================
-// Music Sources with Icons
-// ============================================
-const MUSIC_SOURCES = [
-    { name: 'YouTube', icon: 'youtube.png' },
-    { name: 'YouTube Music', icon: 'youtube-music.png' },
-    { name: 'SoundCloud', icon: 'soundcloud.png' },
-    { name: 'Unified', icon: 'unified.png' },
-    { name: 'Spotify', icon: 'spotify.png' },
-    { name: 'Apple Music', icon: 'apple-music.png' },
-    { name: 'Deezer', icon: 'deezer.png' },
-    { name: 'Tidal', icon: 'tidal.png' },
-    { name: 'Bandcamp', icon: 'bandcamp.png' },
-    { name: 'Audiomack', icon: 'audiomack.png' },
-    { name: 'Gaana', icon: 'gaana.png' },
-    { name: 'JioSaavn', icon: 'jiosaavn.png' },
-    { name: 'Last.fm', icon: 'lastfm.png' },
-    { name: 'Pandora', icon: 'pandora.png' },
-    { name: 'VK Music', icon: 'vk-music.png' },
-    { name: 'Mixcloud', icon: 'mixcloud.png' },
-    { name: 'NicoVideo', icon: 'nicovideo.png' },
-    { name: 'Bilibili', icon: 'bilibili.png' },
-    { name: 'Shazam', icon: 'shazam.png' },
-    { name: 'Eternal Box', icon: 'eternalbox.png' },
-    { name: 'Songlink', icon: 'songlink.png' },
-    { name: 'Qobuz', icon: 'qobuz.png' },
-    { name: 'Yandex Music', icon: 'yandex-music.png' },
-    { name: 'Audius', icon: 'audius.png' },
-    { name: 'Amazon Music', icon: 'amazon-music.png' },
-    { name: 'Anghami', icon: 'anghami.png' },
-    { name: 'Bluesky', icon: 'bluesky.png' },
-    { name: 'Letras.mus.br', icon: 'letras.png' },
-    { name: 'Piper TTS', icon: 'piper-tts.png' },
-    { name: 'Google TTS', icon: 'google-tts.png' },
-    { name: 'Flowery TTS', icon: 'flowery-tts.png' }
-];
-
-// ============================================
-// State Management
-// ============================================
-const state = {
-    ws: null,
-    isConnected: false,
-    pingStart: 0,
-    reconnectAttempts: 0,
-    uptimeInterval: null,
-    pingInterval: null,
-    currentUptime: 0,
-    sessionId: null
-};
-
-// ============================================
-// DOM Elements Cache
-// ============================================
-const elements = {};
-
-function cacheElements() {
-    elements.statusCard = document.getElementById('statusCard');
-    elements.statusDot = document.getElementById('statusDot');
-    elements.ring1 = document.getElementById('ring1');
-    elements.ring2 = document.getElementById('ring2');
-    elements.ring3 = document.getElementById('ring3');
-    elements.statusTitle = document.getElementById('statusTitle');
-    elements.statusSubtitle = document.getElementById('statusSubtitle');
-    elements.pingValue = document.getElementById('pingValue');
-    elements.playersCount = document.getElementById('playersCount');
-    elements.totalPlayers = document.getElementById('totalPlayers');
-    elements.playingPlayers = document.getElementById('playingPlayers');
-    elements.cpuCores = document.getElementById('cpuCores');
-    elements.cpuSystemValue = document.getElementById('cpuSystemValue');
-    elements.cpuProcessValue = document.getElementById('cpuProcessValue');
-    elements.cpuSystemBar = document.getElementById('cpuSystemBar');
-    elements.cpuProcessBar = document.getElementById('cpuProcessBar');
-    elements.memoryTotal = document.getElementById('memoryTotal');
-    elements.memoryUsedValue = document.getElementById('memoryUsedValue');
-    elements.memoryAllocatedValue = document.getElementById('memoryAllocatedValue');
-    elements.memoryUsedBar = document.getElementById('memoryUsedBar');
-    elements.memoryAllocatedBar = document.getElementById('memoryAllocatedBar');
-    elements.uptimeDays = document.getElementById('uptimeDays');
-    elements.uptimeHours = document.getElementById('uptimeHours');
-    elements.uptimeMinutes = document.getElementById('uptimeMinutes');
-    elements.uptimeSeconds = document.getElementById('uptimeSeconds');
-    elements.framesSent = document.getElementById('framesSent');
-    elements.framesNulled = document.getElementById('framesNulled');
-    elements.framesDeficit = document.getElementById('framesDeficit');
-    elements.framesExpected = document.getElementById('framesExpected');
-    elements.batteryLevel = document.getElementById('batteryLevel');
-    elements.healthPercent = document.getElementById('healthPercent');
-    elements.sourcesGrid = document.getElementById('sourcesGrid');
-    elements.sourceCount = document.getElementById('sourceCount');
-    elements.logContainer = document.getElementById('logContainer');
-    elements.clearLogBtn = document.getElementById('clearLogBtn');
-}
-
-// ============================================
-// Utility Functions
-// ============================================
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-function formatUptime(ms) {
-    const totalSeconds = Math.floor(ms / 1000);
-    const days = Math.floor(totalSeconds / 86400);
-    const hours = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return { days, hours, minutes, seconds };
-}
-
-function padZero(num) {
-    return num.toString().padStart(2, '0');
-}
-
-function getTimeString() {
-    return new Date().toLocaleTimeString('en-US', { hour12: false });
-}
-
-// ============================================
-// Logging System
-// ============================================
-function addLog(message, type = 'info') {
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.innerHTML = `
-        <span class="log-time">${getTimeString()}</span>
-        <span class="log-message ${type}">${message}</span>
-    `;
-    
-    elements.logContainer.insertBefore(entry, elements.logContainer.firstChild);
-    
-    // Limit logs
-    while (elements.logContainer.children.length > CONFIG.MAX_LOGS) {
-        elements.logContainer.removeChild(elements.logContainer.lastChild);
-    }
-}
-
-function clearLogs() {
-    elements.logContainer.innerHTML = '';
-    addLog('Logs cleared', 'info');
-}
-
-// ============================================
-// UI Update Functions
-// ============================================
-function updateStatusUI(online) {
-    const statusElements = [
-        elements.statusCard,
-        elements.statusDot,
-        elements.ring1,
-        elements.ring2,
-        elements.ring3
-    ];
-
-    if (online) {
-        statusElements.forEach(el => el.classList.remove('offline'));
-        elements.statusTitle.textContent = 'Operational';
-        elements.statusSubtitle.textContent = 'All systems running smoothly';
-    } else {
-        statusElements.forEach(el => el.classList.add('offline'));
-        elements.statusTitle.textContent = 'Offline';
-        elements.statusSubtitle.textContent = 'Connection lost - Attempting to reconnect...';
-        resetStats();
-    }
-}
-
-function resetStats() {
-    elements.pingValue.textContent = '--';
-    elements.playersCount.textContent = '-';
-    elements.totalPlayers.textContent = '-';
-    elements.playingPlayers.textContent = '-';
-    elements.cpuCores.textContent = '- cores';
-    elements.cpuSystemValue.textContent = '--%';
-    elements.cpuProcessValue.textContent = '--%';
-    elements.cpuSystemBar.style.width = '0%';
-    elements.cpuProcessBar.style.width = '0%';
-    elements.memoryTotal.textContent = '-';
-    elements.memoryUsedValue.textContent = '-';
-    elements.memoryAllocatedValue.textContent = '-';
-    elements.memoryUsedBar.style.width = '0%';
-    elements.memoryAllocatedBar.style.width = '0%';
-    elements.uptimeDays.textContent = '-';
-    elements.uptimeHours.textContent = '-';
-    elements.uptimeMinutes.textContent = '-';
-    elements.uptimeSeconds.textContent = '-';
-    elements.framesSent.textContent = '-';
-    elements.framesNulled.textContent = '-';
-    elements.framesDeficit.textContent = '-';
-    elements.framesExpected.textContent = '-';
-    elements.batteryLevel.style.height = '0%';
-    elements.healthPercent.textContent = '--%';
-}
-
-function updateStats(data) {
-    // Players
-    const totalPlayers = data.players || 0;
-    const playing = data.playingPlayers || 0;
-    elements.totalPlayers.textContent = totalPlayers;
-    elements.playingPlayers.textContent = playing;
-    elements.playersCount.textContent = totalPlayers;
-
-    // Uptime
-    if (data.uptime) {
-        state.currentUptime = data.uptime;
-        updateUptimeDisplay();
-    }
-
-    // Memory
-    if (data.memory) {
-        const { free, used, allocated, reservable } = data.memory;
-        const maxMem = reservable || allocated || 1;
+class NodeLinkMonitor {
+    constructor() {
+        this.wsUrl = 'ws://212.132.120.102:12115/v4/websocket';
+        this.cloudflareUrl = 'https://circulation-grocery-essay-gotten.trycloudflare.com';
+        this.password = 'AkiraMusic';
+        this.userId = 'test';
+        this.clientName = 'github-status';
         
-        const usedPercent = Math.min((used / maxMem) * 100, 100);
-        const allocatedPercent = Math.min((allocated / maxMem) * 100, 100);
-
-        elements.memoryTotal.textContent = formatBytes(maxMem);
-        elements.memoryUsedValue.textContent = `${formatBytes(used)} (${usedPercent.toFixed(1)}%)`;
-        elements.memoryAllocatedValue.textContent = `${formatBytes(allocated)} (${allocatedPercent.toFixed(1)}%)`;
-        elements.memoryUsedBar.style.width = `${usedPercent}%`;
-        elements.memoryAllocatedBar.style.width = `${allocatedPercent}%`;
-    }
-
-    // CPU
-    if (data.cpu) {
-        const cores = data.cpu.cores || 0;
-        const systemLoad = (data.cpu.systemLoad || 0) * 100;
-        const processLoad = (data.cpu.lavalinkLoad || data.cpu.processLoad || 0) * 100;
-
-        elements.cpuCores.textContent = `${cores} cores`;
-        elements.cpuSystemValue.textContent = `${systemLoad.toFixed(1)}%`;
-        elements.cpuProcessValue.textContent = `${processLoad.toFixed(1)}%`;
-        elements.cpuSystemBar.style.width = `${Math.min(systemLoad, 100)}%`;
-        elements.cpuProcessBar.style.width = `${Math.min(processLoad, 100)}%`;
-
-        // Health Score (inverse of load)
-        const healthScore = Math.max(0, 100 - ((systemLoad + processLoad) / 2));
-        elements.batteryLevel.style.height = `${healthScore}%`;
-        elements.healthPercent.textContent = `${healthScore.toFixed(0)}%`;
-
-        // Update battery color based on health
-        updateBatteryColor(healthScore);
-    }
-
-    // Frame Stats
-    if (data.frameStats) {
-        elements.framesSent.textContent = formatNumber(data.frameStats.sent || 0);
-        elements.framesNulled.textContent = formatNumber(data.frameStats.nulled || 0);
-        elements.framesDeficit.textContent = formatNumber(data.frameStats.deficit || 0);
-        const expected = (data.frameStats.sent || 0) + (data.frameStats.nulled || 0);
-        elements.framesExpected.textContent = formatNumber(expected);
-    }
-}
-
-function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
-}
-
-function updateBatteryColor(health) {
-    const batteryLevel = elements.batteryLevel;
-    if (health >= 70) {
-        batteryLevel.style.background = 'linear-gradient(90deg, #10b981, #6366f1)';
-    } else if (health >= 40) {
-        batteryLevel.style.background = 'linear-gradient(90deg, #f59e0b, #fbbf24)';
-    } else {
-        batteryLevel.style.background = 'linear-gradient(90deg, #ef4444, #f87171)';
-    }
-}
-
-function updateUptimeDisplay() {
-    if (state.currentUptime > 0) {
-        const time = formatUptime(state.currentUptime);
-        elements.uptimeDays.textContent = padZero(time.days);
-        elements.uptimeHours.textContent = padZero(time.hours);
-        elements.uptimeMinutes.textContent = padZero(time.minutes);
-        elements.uptimeSeconds.textContent = padZero(time.seconds);
-    }
-}
-
-function tickUptime() {
-    if (state.currentUptime > 0 && state.isConnected) {
-        state.currentUptime += 1000;
-        updateUptimeDisplay();
-    }
-}
-
-// ============================================
-// Music Sources Rendering
-// ============================================
-function renderMusicSources() {
-    elements.sourcesGrid.innerHTML = '';
-    
-    MUSIC_SOURCES.forEach(source => {
-        const tag = document.createElement('div');
-        tag.className = 'source-tag';
-        tag.innerHTML = `
-            <img src="icons/${source.icon}" alt="${source.name}" class="source-icon" 
-                 onerror="this.style.display='none'">
-            <span class="source-name">${source.name}</span>
-        `;
-        elements.sourcesGrid.appendChild(tag);
-    });
-    
-    elements.sourceCount.textContent = `${MUSIC_SOURCES.length} Sources`;
-}
-
-// ============================================
-// WebSocket Connection
-// ============================================
-function connect() {
-    addLog('Attempting WebSocket connection...', 'info');
-    updateStatusUI(false);
-    elements.statusTitle.textContent = 'Connecting...';
-    elements.statusSubtitle.textContent = 'Establishing WebSocket connection';
-
-    try {
-        state.ws = new WebSocket(CONFIG.WS_URL);
-
-        state.ws.onopen = handleOpen;
-        state.ws.onmessage = handleMessage;
-        state.ws.onerror = handleError;
-        state.ws.onclose = handleClose;
-
-    } catch (error) {
-        addLog(`Connection error: ${error.message}`, 'error');
-        scheduleReconnect();
-    }
-}
-
-function handleOpen() {
-    state.isConnected = true;
-    state.reconnectAttempts = 0;
-    updateStatusUI(true);
-    addLog('WebSocket connected successfully!', 'success');
-    
-    // Start ping measurement
-    state.pingStart = performance.now();
-    
-    // Start intervals
-    startIntervals();
-}
-
-function handleMessage(event) {
-    try {
-        const data = JSON.parse(event.data);
+        this.ws = null;
+        this.isConnected = false;
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.reconnectDelay = 5000;
+        this.pingInterval = null;
+        this.lastPingTime = null;
+        this.statsUpdateInterval = 30000;
         
-        // Calculate ping
-        if (state.pingStart > 0) {
-            const ping = Math.round(performance.now() - state.pingStart);
-            elements.pingValue.textContent = `${ping}ms`;
-            state.pingStart = 0;
-        }
-
-        // Handle message types
-        switch (data.op) {
-            case 'ready':
-                state.sessionId = data.sessionId;
-                addLog(`Session ready: ${data.sessionId}`, 'success');
-                break;
-            
-            case 'stats':
-                updateStats(data);
-                addLog('Stats updated', 'success');
-                break;
-            
-            case 'playerUpdate':
-                addLog(`Player update: ${data.guildId}`, 'info');
-                break;
-            
-            case 'event':
-                addLog(`Event received: ${data.type}`, 'info');
-                break;
-            
-            default:
-                console.log('Unknown message:', data);
-        }
-    } catch (e) {
-        console.error('Failed to parse message:', e);
+        this.musicSources = [
+            'YouTube', 'YouTube Music', 'SoundCloud', 'Unified', 'Spotify',
+            'Apple Music', 'Deezer', 'Tidal', 'Bandcamp', 'Audiomack',
+            'Gaana', 'JioSaavn', 'Last.fm', 'Pandora', 'VK Music',
+            'Mixcloud', 'NicoVideo', 'Bilibili', 'Shazam', 'Eternal Box',
+            'Songlink', 'Qobuz', 'Yandex Music', 'Audius', 'Amazon Music',
+            'Anghami', 'Bluesky', 'Letras.mus.br', 'Piper TTS', 'Google TTS',
+            'Flowery TTS'
+        ];
+        
+        this.init();
     }
-}
-
-function handleError(error) {
-    addLog('WebSocket error occurred', 'error');
-    console.error('WebSocket error:', error);
-}
-
-function handleClose(event) {
-    state.isConnected = false;
-    updateStatusUI(false);
-    addLog(`Connection closed (Code: ${event.code})`, 'error');
     
-    stopIntervals();
-    scheduleReconnect();
-}
-
-function scheduleReconnect() {
-    state.reconnectAttempts++;
-    const delay = Math.min(
-        CONFIG.RECONNECT_BASE_DELAY * Math.pow(2, state.reconnectAttempts),
-        CONFIG.RECONNECT_MAX_DELAY
-    );
+    init() {
+        this.renderMusicSources();
+        this.checkServerStatus();
+        this.connect();
+        
+        // Periodic server status check via Cloudflare
+        setInterval(() => this.checkServerStatus(), 30000);
+    }
     
-    addLog(`Reconnecting in ${delay / 1000}s...`, 'warning');
-    setTimeout(connect, delay);
-}
-
-function measurePing() {
-    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-        state.pingStart = performance.now();
+    async checkServerStatus() {
         try {
-            // NodeLink doesn't have a ping op, but sending any message works
-            state.ws.send(JSON.stringify({ op: 'ping' }));
-        } catch (e) {
-            // Ignore send errors
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const response = await fetch(this.cloudflareUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': this.password
+                },
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.ok || response.status === 401) {
+                // Server is reachable (401 means auth required but server is up)
+                console.log('Server is reachable via Cloudflare tunnel');
+            }
+        } catch (error) {
+            console.log('Cloudflare tunnel check failed:', error.message);
         }
     }
-}
-
-// ============================================
-// HTTP Fallback
-// ============================================
-async function fetchStatsHTTP() {
-    try {
-        const response = await fetch(`${CONFIG.HTTP_URL}/v4/stats`, {
-            headers: {
-                'Authorization': CONFIG.AUTH
+    
+    connect() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            return;
+        }
+        
+        console.log('Attempting to connect to NodeLink...');
+        
+        try {
+            this.ws = new WebSocket(this.wsUrl);
+            
+            // Set headers via URL parameters (WebSocket doesn't support custom headers in browser)
+            // We'll handle auth in the open event
+            
+            this.ws.onopen = () => this.handleOpen();
+            this.ws.onmessage = (event) => this.handleMessage(event);
+            this.ws.onclose = (event) => this.handleClose(event);
+            this.ws.onerror = (error) => this.handleError(error);
+            
+        } catch (error) {
+            console.error('WebSocket creation error:', error);
+            this.handleError(error);
+        }
+    }
+    
+    handleOpen() {
+        console.log('WebSocket connected!');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        
+        this.updateStatus(true);
+        this.startPingInterval();
+        
+        // Send initial identification
+        this.sendMessage({
+            op: 'identify',
+            d: {
+                authorization: this.password,
+                userId: this.userId,
+                clientName: this.clientName
+            }
+        });
+    }
+    
+    handleMessage(event) {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('Received:', data);
+            
+            switch (data.op) {
+                case 'stats':
+                    this.updateStats(data);
+                    break;
+                case 'ready':
+                    console.log('NodeLink ready!', data);
+                    break;
+                case 'playerUpdate':
+                    // Handle player updates if needed
+                    break;
+                case 'event':
+                    this.handleEvent(data);
+                    break;
+                case 'pong':
+                    this.handlePong();
+                    break;
+                default:
+                    console.log('Unknown op:', data.op);
+            }
+        } catch (error) {
+            console.error('Error parsing message:', error);
+        }
+    }
+    
+    handleEvent(data) {
+        if (data.type === 'StatsEvent') {
+            this.updateStats(data);
+        }
+    }
+    
+    handleClose(event) {
+        console.log('WebSocket closed:', event.code, event.reason);
+        this.isConnected = false;
+        this.updateStatus(false);
+        this.stopPingInterval();
+        
+        // Attempt to reconnect
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            console.log(`Reconnecting... Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+            setTimeout(() => this.connect(), this.reconnectDelay);
+        } else {
+            console.log('Max reconnect attempts reached');
+        }
+    }
+    
+    handleError(error) {
+        console.error('WebSocket error:', error);
+        this.isConnected = false;
+        this.updateStatus(false);
+    }
+    
+    sendMessage(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        }
+    }
+    
+    startPingInterval() {
+        this.pingInterval = setInterval(() => {
+            this.lastPingTime = Date.now();
+            this.sendMessage({ op: 'ping' });
+        }, 30000);
+        
+        // Send initial ping
+        this.lastPingTime = Date.now();
+        this.sendMessage({ op: 'ping' });
+    }
+    
+    stopPingInterval() {
+        if (this.pingInterval) {
+            clearInterval(this.pingInterval);
+            this.pingInterval = null;
+        }
+    }
+    
+    handlePong() {
+        if (this.lastPingTime) {
+            const ping = Date.now() - this.lastPingTime;
+            this.updatePing(ping);
+        }
+    }
+    
+    updateStatus(isOnline) {
+        const badge = document.getElementById('statusBadge');
+        const body = document.body;
+        
+        if (isOnline) {
+            badge.classList.remove('offline');
+            badge.classList.add('online');
+            badge.querySelector('.status-text').textContent = 'Online';
+            body.classList.remove('offline');
+        } else {
+            badge.classList.remove('online');
+            badge.classList.add('offline');
+            badge.querySelector('.status-text').textContent = 'Offline';
+            body.classList.add('offline');
+            this.resetStats();
+        }
+    }
+    
+    updatePing(ping) {
+        const pingElement = document.getElementById('pingValue');
+        this.animateValue(pingElement, parseInt(pingElement.textContent) || 0, ping, 500);
+        
+        // Update wave animation speed based on ping
+        const waves = document.querySelectorAll('.ping-wave .wave');
+        waves.forEach(wave => {
+            const speed = Math.max(0.3, Math.min(2, ping / 100));
+            wave.style.animationDuration = `${speed}s`;
+        });
+    }
+    
+    updateStats(data) {
+        // Players
+        if (data.players !== undefined) {
+            const totalPlayers = document.getElementById('totalPlayers');
+            this.animateValue(totalPlayers, parseInt(totalPlayers.textContent) || 0, data.players, 500);
+        }
+        
+        if (data.playingPlayers !== undefined) {
+            const playingPlayers = document.getElementById('playingPlayers');
+            this.animateValue(playingPlayers, parseInt(playingPlayers.textContent) || 0, data.playingPlayers, 500);
+        }
+        
+        // Uptime
+        if (data.uptime !== undefined) {
+            this.updateUptime(data.uptime);
+        }
+        
+        // Memory
+        if (data.memory) {
+            this.updateMemory(data.memory);
+        }
+        
+        // CPU
+        if (data.cpu) {
+            this.updateCPU(data.cpu);
+        }
+        
+        // Frame Stats
+        if (data.frameStats) {
+            this.updateFrameStats(data.frameStats);
+        }
+    }
+    
+    updateUptime(uptimeMs) {
+        const hours = Math.floor(uptimeMs / 3600000);
+        const minutes = Math.floor((uptimeMs % 3600000) / 60000);
+        const seconds = Math.floor((uptimeMs % 60000) / 1000);
+        
+        const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        document.getElementById('uptimeValue').textContent = formatted;
+        
+        // Calculate uptime percentage (assume max 30 days for visual)
+        const maxUptime = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+        const percentage = Math.min((uptimeMs / maxUptime) * 100, 100);
+        document.getElementById('uptimeFill').style.width = `${percentage}%`;
+    }
+    
+    updateMemory(memory) {
+        const formatBytes = (bytes) => {
+            if (bytes >= 1073741824) {
+                return (bytes / 1073741824).toFixed(2) + ' GB';
+            }
+            return (bytes / 1048576).toFixed(2) + ' MB';
+        };
+        
+        document.getElementById('memUsed').textContent = formatBytes(memory.used);
+        document.getElementById('memFree').textContent = formatBytes(memory.free);
+        document.getElementById('memAllocated').textContent = formatBytes(memory.allocated);
+        document.getElementById('memReservable').textContent = formatBytes(memory.reservable);
+        
+        // Update battery fill
+        const usedPercent = (memory.used / memory.allocated) * 100;
+        const batteryFill = document.getElementById('memoryBatteryFill');
+        const batteryPercentage = document.getElementById('memoryPercentage');
+        
+        batteryFill.style.height = `${usedPercent}%`;
+        batteryPercentage.textContent = `${Math.round(usedPercent)}%`;
+        
+        // Change color based on usage
+        if (usedPercent > 80) {
+            batteryFill.style.background = 'linear-gradient(135deg, #EF4444, #F59E0B)';
+        } else if (usedPercent > 60) {
+            batteryFill.style.background = 'linear-gradient(135deg, #F59E0B, #10B981)';
+        } else {
+            batteryFill.style.background = 'var(--gradient-success)';
+        }
+    }
+    
+    updateCPU(cpu) {
+        // Cores
+        document.getElementById('cpuCores').textContent = `${cpu.cores} cores`;
+        
+        // System Load
+        const systemLoad = (cpu.systemLoad * 100).toFixed(1);
+        document.getElementById('systemLoadValue').textContent = `${systemLoad}%`;
+        document.getElementById('systemLoadBar').style.width = `${Math.min(systemLoad, 100)}%`;
+        
+        // Process Load
+        const processLoad = (cpu.lavalinkLoad * 100).toFixed(1);
+        document.getElementById('processLoadValue').textContent = `${processLoad}%`;
+        document.getElementById('processLoadBar').style.width = `${Math.min(processLoad, 100)}%`;
+    }
+    
+    updateFrameStats(frameStats) {
+        const elements = {
+            frameSent: frameStats.sent,
+            frameNulled: frameStats.nulled,
+            frameDeficit: frameStats.deficit
+        };
+        
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element && value !== undefined) {
+                this.animateValue(element, parseInt(element.textContent) || 0, value, 500);
             }
         });
         
-        if (response.ok) {
-            const data = await response.json();
-            updateStats(data);
-            updateStatusUI(true);
-            addLog('Stats fetched via HTTP', 'success');
-            return true;
+        // Expected is calculated
+        if (frameStats.sent !== undefined && frameStats.deficit !== undefined) {
+            const expected = frameStats.sent + frameStats.deficit;
+            const expectedElement = document.getElementById('frameExpected');
+            this.animateValue(expectedElement, parseInt(expectedElement.textContent) || 0, expected, 500);
         }
-    } catch (e) {
-        console.log('HTTP fallback failed:', e);
     }
-    return false;
-}
-
-// ============================================
-// Intervals Management
-// ============================================
-function startIntervals() {
-    // Uptime counter
-    if (state.uptimeInterval) clearInterval(state.uptimeInterval);
-    state.uptimeInterval = setInterval(tickUptime, 1000);
     
-    // Ping measurement
-    if (state.pingInterval) clearInterval(state.pingInterval);
-    state.pingInterval = setInterval(measurePing, CONFIG.PING_INTERVAL);
-}
-
-function stopIntervals() {
-    if (state.uptimeInterval) {
-        clearInterval(state.uptimeInterval);
-        state.uptimeInterval = null;
+    resetStats() {
+        const elements = [
+            'pingValue', 'uptimeValue', 'totalPlayers', 'playingPlayers',
+            'memUsed', 'memFree', 'memAllocated', 'memReservable',
+            'systemLoadValue', 'processLoadValue', 'cpuCores',
+            'frameSent', 'frameNulled', 'frameDeficit', 'frameExpected'
+        ];
+        
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                if (id === 'uptimeValue') {
+                    element.textContent = '--:--:--';
+                } else if (id === 'cpuCores') {
+                    element.textContent = '-- cores';
+                } else if (id.startsWith('mem')) {
+                    element.textContent = '-- MB';
+                } else if (id.includes('Load')) {
+                    element.textContent = '--%';
+                } else {
+                    element.textContent = '--';
+                }
+            }
+        });
+        
+        // Reset progress bars
+        document.getElementById('systemLoadBar').style.width = '0%';
+        document.getElementById('processLoadBar').style.width = '0%';
+        document.getElementById('uptimeFill').style.width = '0%';
+        document.getElementById('memoryBatteryFill').style.height = '0%';
+        document.getElementById('memoryPercentage').textContent = '--%';
     }
-    if (state.pingInterval) {
-        clearInterval(state.pingInterval);
-        state.pingInterval = null;
-    }
-}
-
-// ============================================
-// Event Listeners
-// ============================================
-function setupEventListeners() {
-    // Clear log button
-    elements.clearLogBtn.addEventListener('click', clearLogs);
     
-    // Visibility change - reconnect when page becomes visible
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && !state.isConnected) {
-            addLog('Page visible - attempting reconnection', 'info');
-            connect();
+    animateValue(element, start, end, duration) {
+        if (!element || isNaN(start) || isNaN(end)) return;
+        
+        const startTime = performance.now();
+        const diff = end - start;
+        
+        const animate = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function
+            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+            
+            const current = Math.round(start + diff * easeOutQuart);
+            element.textContent = current;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        requestAnimationFrame(animate);
+    }
+    
+    renderMusicSources() {
+        const grid = document.getElementById('sourcesGrid');
+        
+        const getIconClass = (source) => {
+            const lower = source.toLowerCase();
+            if (lower.includes('youtube')) return 'youtube';
+            if (lower.includes('spotify')) return 'spotify';
+            if (lower.includes('soundcloud')) return 'soundcloud';
+            if (lower.includes('apple')) return 'apple';
+            if (lower.includes('deezer')) return 'deezer';
+            if (lower.includes('tidal')) return 'tidal';
+            if (lower.includes('bandcamp')) return 'bandcamp';
+            return 'default';
+        };
+        
+        const getInitials = (source) => {
+            const words = source.split(' ');
+            if (words.length > 1) {
+                return words[0][0] + words[1][0];
+            }
+            return source.substring(0, 2);
+        };
+        
+        grid.innerHTML = this.musicSources.map(source => `
+            <div class="source-item">
+                <div class="source-icon ${getIconClass(source)}">
+                    ${getInitials(source).toUpperCase()}
+                </div>
+                <span class="source-name">${source}</span>
+            </div>
+        `).join('');
+    }
+}
+
+// Simulated stats for demo (when WebSocket is not available)
+class DemoMode {
+    constructor(monitor) {
+        this.monitor = monitor;
+        this.isDemo = false;
+    }
+    
+    start() {
+        if (this.isDemo) return;
+        this.isDemo = true;
+        
+        console.log('Starting demo mode...');
+        
+        // Simulate connection after a delay
+        setTimeout(() => {
+            this.monitor.updateStatus(true);
+            this.simulateStats();
+        }, 2000);
+    }
+    
+    simulateStats() {
+        const updateStats = () => {
+            if (!this.isDemo) return;
+            
+            const stats = {
+                players: Math.floor(Math.random() * 50) + 10,
+                playingPlayers: Math.floor(Math.random() * 30) + 5,
+                uptime: Date.now() - (Math.random() * 86400000), // Random uptime up to 1 day
+                memory: {
+                    free: Math.floor(Math.random() * 500000000) + 100000000,
+                    used: Math.floor(Math.random() * 800000000) + 200000000,
+                    allocated: 1073741824,
+                    reservable: 2147483648
+                },
+                cpu: {
+                    cores: 4,
+                    systemLoad: Math.random() * 0.5,
+                    lavalinkLoad: Math.random() * 0.3
+                },
+                frameStats: {
+                    sent: Math.floor(Math.random() * 10000) + 5000,
+                    nulled: Math.floor(Math.random() * 100),
+                    deficit: Math.floor(Math.random() * 50)
+                }
+            };
+            
+            this.monitor.updateStats(stats);
+            this.monitor.updatePing(Math.floor(Math.random() * 100) + 20);
+            
+            setTimeout(updateStats, 5000);
+        };
+        
+        updateStats();
+    }
+    
+    stop() {
+        this.isDemo = false;
+    }
+}
+
+// Initialize on DOM load
+document.addEventListener('DOMContentLoaded', () => {
+    const monitor = new NodeLinkMonitor();
+    
+    // Enable demo mode for testing without actual server
+    // Uncomment the following lines to enable demo mode:
+    // const demo = new DemoMode(monitor);
+    // setTimeout(() => demo.start(), 3000);
+    
+    // Expose to window for debugging
+    window.nodelink = monitor;
+});
+
+// Handle visibility change to reconnect when page becomes visible
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && window.nodelink) {
+        if (!window.nodelink.isConnected) {
+            window.nodelink.reconnectAttempts = 0;
+            window.nodelink.connect();
         }
-    });
-    
-    // Online/Offline events
-    window.addEventListener('online', () => {
-        addLog('Network online - reconnecting...', 'info');
-        connect();
-    });
-    
-    window.addEventListener('offline', () => {
-        addLog('Network offline', 'error');
-        updateStatusUI(false);
-    });
-}
-
-// ============================================
-// Initialization
-// ============================================
-function init() {
-    // Cache DOM elements
-    cacheElements();
-    
-    // Render music sources
-    renderMusicSources();
-    
-    // Setup event listeners
-    setupEventListeners();
-    
-    // Initial log
-    addLog('NodeLink Status Page initialized', 'info');
-    addLog(`Target: ${CONFIG.WS_URL}`, 'info');
-    
-    // Start WebSocket connection
-    connect();
-    
-    // HTTP fallback interval
-    setInterval(() => {
-        if (!state.isConnected) {
-            fetchStatsHTTP();
-        }
-    }, CONFIG.STATS_INTERVAL);
-    
-    // Initial HTTP fetch attempt
-    setTimeout(fetchStatsHTTP, 2000);
-}
-
-// Start when DOM is ready
-document.addEventListener('DOMContentLoaded', init);
-
+    }
+});
