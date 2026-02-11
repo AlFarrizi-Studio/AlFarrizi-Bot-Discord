@@ -1,8 +1,9 @@
+// script.js
 /**
  * Akira Status Page - JavaScript
  * Real-time Lavalink Server Status Monitor
  * 
- * @version 2.0.0
+ * @version 2.1.0
  * @author Akira
  */
 
@@ -14,32 +15,31 @@
     // ============================================
     const CONFIG = {
         server: {
-            host: 'https://understand-nec-our-pushed.trycloudflare.com',
-            port: '',
+            // Cloudflare Tunnel URL (tanpa protocol)
+            host: 'understand-nec-our-pushed.trycloudflare.com',
             password: 'AkiraMusic',
-            secure: false // Set true if server supports SSL
+            secure: true // Cloudflare Tunnel selalu HTTPS/WSS
         },
         websocket: {
-            userId: 'akira-status',
-            clientName: 'Akira-Status-Page'
+            userId: 'akira-status-' + Date.now(),
+            clientName: 'Akira-Status-Page/2.1.0'
         },
         reconnect: {
-            maxAttempts: 5,
-            baseDelay: 3000,
+            maxAttempts: 10,
+            baseDelay: 2000,
             maxDelay: 30000
         },
-        updateInterval: 30000,
+        updateInterval: 5000, // Poll setiap 5 detik jika WS gagal
+        httpFallback: true, // Gunakan HTTP polling jika WS gagal
         iconsPath: 'icons/'
     };
 
-    // Build URLs based on page protocol and config
-    const isSecurePage = window.location.protocol === 'https:';
-    const wsProtocol = CONFIG.server.secure ? 'wss:' : 'ws:';
-    const httpProtocol = CONFIG.server.secure ? 'https:' : 'http:';
-    
+    // Build URLs - Cloudflare Tunnel selalu secure
     const URLS = {
-        websocket: `${wsProtocol}//${CONFIG.server.host}:${CONFIG.server.port}/v4/websocket`,
-        stats: `${httpProtocol}//${CONFIG.server.host}:${CONFIG.server.port}/v4/stats`
+        websocket: `wss://${CONFIG.server.host}/v4/websocket`,
+        stats: `https://${CONFIG.server.host}/v4/stats`,
+        info: `https://${CONFIG.server.host}/v4/info`,
+        version: `https://${CONFIG.server.host}/version`
     };
 
     // ============================================
@@ -85,14 +85,18 @@
     const state = {
         ws: null,
         isConnected: false,
-        connectionMode: 'connecting', // 'websocket', 'simulation', 'offline'
+        connectionMode: 'connecting', // 'websocket', 'http-polling', 'offline'
         reconnectAttempts: 0,
         reconnectTimeout: null,
+        httpPollInterval: null,
         lastPingTime: null,
+        pingLatency: 0,
         uptimeMs: 0,
         uptimeInterval: null,
-        simulationInterval: null,
-        startTime: Date.now()
+        startTime: Date.now(),
+        serverInfo: null,
+        lastStats: null,
+        wsConnectStartTime: null
     };
 
     // ============================================
@@ -110,7 +114,7 @@
         'memoryUsed', 'memoryFree', 'memoryAllocated', 'memoryReservable',
         'framesSent', 'framesNulled', 'framesDeficit', 'framesExpected',
         'lastUpdate', 'sourcesGrid', 'sourcesCount', 'toastContainer',
-        'refreshBtn', 'updateInterval'
+        'refreshBtn', 'updateInterval', 'serverAddress'
     ];
 
     function cacheElements() {
@@ -182,13 +186,21 @@
     /**
      * Show toast notification
      */
-    function showToast(message, type = 'info', duration = 3000) {
+    function showToast(message, type = 'info', duration = 4000) {
         if (!elements.toastContainer) return;
 
         const toast = document.createElement('div');
         toast.className = `toast toast-${type}`;
+        
+        const icons = {
+            success: '✓',
+            error: '✕',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+
         toast.innerHTML = `
-            <span class="toast-icon">${type === 'success' ? '✓' : type === 'error' ? '✕' : 'ℹ'}</span>
+            <span class="toast-icon">${icons[type] || icons.info}</span>
             <span class="toast-message">${message}</span>
         `;
 
@@ -204,21 +216,6 @@
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 300);
         }, duration);
-    }
-
-    /**
-     * Debounce function
-     */
-    function debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
     }
 
     // ============================================
@@ -291,10 +288,10 @@
     function updateConnectionMode(mode) {
         state.connectionMode = mode;
         const modeTexts = {
-            websocket: 'Live',
-            simulation: 'Demo',
-            offline: 'Offline',
-            connecting: 'Connecting'
+            websocket: '🟢 WebSocket Live',
+            'http-polling': '🔄 HTTP Polling',
+            offline: '🔴 Offline',
+            connecting: '🟡 Connecting...'
         };
         setText('connectionModeText', modeTexts[mode] || mode);
     }
@@ -306,6 +303,7 @@
         if (!elements.pingValue) return;
 
         const pingNum = parseInt(ping) || 0;
+        state.pingLatency = pingNum;
         setText('pingValue', pingNum);
 
         // Remove all classes and add appropriate one
@@ -404,6 +402,8 @@
     function updateStats(data) {
         if (!data) return;
 
+        state.lastStats = data;
+
         // Players
         if (data.players !== undefined) {
             setText('totalPlayers', formatNumber(data.players));
@@ -473,20 +473,127 @@
     }
 
     // ============================================
-    // WebSocket Connection
+    // HTTP API Functions (Fallback & Primary)
     // ============================================
 
     /**
-     * Check if WebSocket connection is possible
+     * Fetch stats via HTTP API
      */
-    function canConnectWebSocket() {
-        // If page is HTTPS and server is not secure, connection will be blocked
-        if (isSecurePage && !CONFIG.server.secure) {
-            console.warn('Cannot connect to insecure WebSocket from HTTPS page');
+    async function fetchStats() {
+        const startTime = performance.now();
+        
+        try {
+            const response = await fetch(URLS.stats, {
+                method: 'GET',
+                headers: {
+                    'Authorization': CONFIG.server.password,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            const latency = Math.round(performance.now() - startTime);
+            
+            updatePing(latency);
+            updateStats(data);
+            
+            return data;
+        } catch (error) {
+            console.error('Failed to fetch stats:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Fetch server info
+     */
+    async function fetchServerInfo() {
+        try {
+            const response = await fetch(URLS.info, {
+                method: 'GET',
+                headers: {
+                    'Authorization': CONFIG.server.password,
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                state.serverInfo = await response.json();
+                console.log('Server info:', state.serverInfo);
+                return state.serverInfo;
+            }
+        } catch (error) {
+            console.warn('Could not fetch server info:', error);
+        }
+        return null;
+    }
+
+    /**
+     * Check server availability
+     */
+    async function checkServerAvailability() {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            const response = await fetch(URLS.version, {
+                method: 'GET',
+                signal: controller.signal,
+                headers: {
+                    'Authorization': CONFIG.server.password
+                }
+            });
+
+            clearTimeout(timeoutId);
+            return response.ok;
+        } catch (error) {
+            console.warn('Server availability check failed:', error);
             return false;
         }
-        return true;
     }
+
+    /**
+     * Start HTTP polling
+     */
+    function startHttpPolling() {
+        if (state.httpPollInterval) return;
+
+        console.log('Starting HTTP polling mode');
+        updateStatus('online');
+        updateConnectionMode('http-polling');
+
+        // Initial fetch
+        fetchStats().catch(console.error);
+        fetchServerInfo().catch(console.error);
+
+        // Start polling interval
+        state.httpPollInterval = setInterval(async () => {
+            try {
+                await fetchStats();
+            } catch (error) {
+                console.error('HTTP poll failed:', error);
+                // Don't stop polling on single failure
+            }
+        }, CONFIG.updateInterval);
+    }
+
+    /**
+     * Stop HTTP polling
+     */
+    function stopHttpPolling() {
+        if (state.httpPollInterval) {
+            clearInterval(state.httpPollInterval);
+            state.httpPollInterval = null;
+        }
+    }
+
+    // ============================================
+    // WebSocket Connection
+    // ============================================
 
     /**
      * Connect to WebSocket server
@@ -498,23 +605,39 @@
             state.reconnectTimeout = null;
         }
 
-        // Check if connection is possible
-        if (!canConnectWebSocket()) {
-            console.log('WebSocket connection not possible from HTTPS, using simulation mode');
-            startSimulation();
-            return;
+        // Close existing connection
+        if (state.ws) {
+            state.ws.close();
+            state.ws = null;
         }
 
         updateStatus('connecting');
         updateConnectionMode('connecting');
         console.log('Attempting WebSocket connection to:', URLS.websocket);
 
+        state.wsConnectStartTime = performance.now();
+
         try {
             state.ws = new WebSocket(URLS.websocket);
 
-            state.ws.onopen = handleWebSocketOpen;
+            // Set timeout for connection
+            const connectTimeout = setTimeout(() => {
+                if (state.ws && state.ws.readyState === WebSocket.CONNECTING) {
+                    console.warn('WebSocket connection timeout');
+                    state.ws.close();
+                }
+            }, 10000);
+
+            state.ws.onopen = () => {
+                clearTimeout(connectTimeout);
+                handleWebSocketOpen();
+            };
+            
             state.ws.onmessage = handleWebSocketMessage;
-            state.ws.onclose = handleWebSocketClose;
+            state.ws.onclose = (event) => {
+                clearTimeout(connectTimeout);
+                handleWebSocketClose(event);
+            };
             state.ws.onerror = handleWebSocketError;
 
         } catch (error) {
@@ -524,17 +647,23 @@
     }
 
     function handleWebSocketOpen() {
-        console.log('WebSocket connected successfully');
+        const connectTime = Math.round(performance.now() - state.wsConnectStartTime);
+        console.log(`WebSocket connected successfully in ${connectTime}ms`);
+        
         state.isConnected = true;
         state.reconnectAttempts = 0;
         state.lastPingTime = Date.now();
         
         updateStatus('online');
         updateConnectionMode('websocket');
-        showToast('Connected to Lavalink server', 'success');
+        updatePing(connectTime);
+        showToast('Connected to Lavalink server via WebSocket', 'success');
 
-        // Stop simulation if running
-        stopSimulation();
+        // Stop HTTP polling if running
+        stopHttpPolling();
+
+        // Fetch initial server info
+        fetchServerInfo().catch(console.error);
     }
 
     function handleWebSocketMessage(event) {
@@ -542,11 +671,14 @@
             const data = JSON.parse(event.data);
             
             // Calculate ping from message timing
+            const now = Date.now();
             if (state.lastPingTime) {
-                const ping = Date.now() - state.lastPingTime;
-                updatePing(ping);
+                // Use a rolling average for smoother ping display
+                const instantPing = now - state.lastPingTime;
+                const smoothedPing = Math.round((state.pingLatency * 0.7) + (instantPing * 0.3));
+                updatePing(Math.min(smoothedPing, 1000)); // Cap at 1000ms
             }
-            state.lastPingTime = Date.now();
+            state.lastPingTime = now;
 
             // Handle different message types
             switch (data.op) {
@@ -555,15 +687,17 @@
                     break;
                 case 'ready':
                     console.log('Lavalink ready:', data);
+                    showToast(`Lavalink ready - Session: ${data.sessionId?.substring(0, 8)}...`, 'info');
                     break;
                 case 'playerUpdate':
                     // Handle player updates if needed
+                    console.debug('Player update:', data);
                     break;
                 case 'event':
-                    // Handle events if needed
+                    console.debug('Event received:', data);
                     break;
                 default:
-                    console.log('Received message:', data.op);
+                    console.debug('Unknown message op:', data.op, data);
             }
         } catch (error) {
             console.error('Error parsing WebSocket message:', error);
@@ -571,35 +705,53 @@
     }
 
     function handleWebSocketClose(event) {
-        console.log(`WebSocket closed: ${event.code} - ${event.reason || 'No reason'}`);
+        console.log(`WebSocket closed: Code ${event.code} - ${event.reason || 'No reason provided'}`);
         state.isConnected = false;
         state.ws = null;
 
-        updateStatus('offline');
-        updateConnectionMode('offline');
-        
-        // Attempt reconnect or fall back to simulation
+        // Determine if this is a clean close or error
+        const wasClean = event.wasClean;
+        const code = event.code;
+
+        // Codes: 1000 = normal, 1001 = going away, 1006 = abnormal, 4xxx = Lavalink specific
+        if (code === 1000 || code === 1001) {
+            console.log('WebSocket closed normally');
+        } else if (code === 1006) {
+            console.warn('WebSocket closed abnormally (connection lost)');
+        } else if (code >= 4000) {
+            console.warn(`Lavalink error code: ${code}`);
+            showToast(`Lavalink error: ${event.reason || `Code ${code}`}`, 'error');
+        }
+
+        // Attempt reconnect
         if (state.reconnectAttempts < CONFIG.reconnect.maxAttempts) {
             attemptReconnect();
+        } else if (CONFIG.httpFallback) {
+            console.log('Max WebSocket attempts reached, falling back to HTTP polling');
+            showToast('Switched to HTTP polling mode', 'warning');
+            startHttpPolling();
         } else {
-            console.log('Max reconnection attempts reached, starting simulation');
-            startSimulation();
+            updateStatus('offline');
+            updateConnectionMode('offline');
+            showToast('Connection lost - please refresh', 'error');
         }
     }
 
     function handleWebSocketError(error) {
         console.error('WebSocket error:', error);
-        // Error handling is done in onclose
+        // Error handling is primarily done in onclose
     }
 
     function handleConnectionFailure() {
         state.isConnected = false;
-        updateStatus('offline');
         
         if (state.reconnectAttempts < CONFIG.reconnect.maxAttempts) {
             attemptReconnect();
+        } else if (CONFIG.httpFallback) {
+            startHttpPolling();
         } else {
-            startSimulation();
+            updateStatus('offline');
+            updateConnectionMode('offline');
         }
     }
 
@@ -614,92 +766,12 @@
         );
 
         console.log(`Reconnecting in ${(delay / 1000).toFixed(1)}s... (attempt ${state.reconnectAttempts}/${CONFIG.reconnect.maxAttempts})`);
+        updateStatus('connecting');
         updateConnectionMode('connecting');
 
         state.reconnectTimeout = setTimeout(() => {
-            if (canConnectWebSocket()) {
-                connectWebSocket();
-            } else {
-                startSimulation();
-            }
+            connectWebSocket();
         }, delay);
-    }
-
-    // ============================================
-    // Simulation Mode (Demo/Fallback)
-    // ============================================
-
-    /**
-     * Start simulation mode
-     */
-    function startSimulation() {
-        if (state.simulationInterval) return; // Already running
-
-        console.log('Starting simulation mode');
-        updateStatus('online');
-        updateConnectionMode('simulation');
-        showToast('Running in demo mode', 'info');
-
-        // Generate initial data
-        generateSimulatedStats();
-
-        // Update periodically
-        state.simulationInterval = setInterval(generateSimulatedStats, CONFIG.updateInterval);
-    }
-
-    /**
-     * Stop simulation mode
-     */
-    function stopSimulation() {
-        if (state.simulationInterval) {
-            clearInterval(state.simulationInterval);
-            state.simulationInterval = null;
-        }
-    }
-
-    /**
-     * Generate simulated statistics
-     */
-    function generateSimulatedStats() {
-        // Use time-based seed for consistent-ish randomness
-        const seed = Math.floor(Date.now() / 60000); // Changes every minute
-        const pseudoRandom = (min, max, offset = 0) => {
-            const x = Math.sin(seed + offset) * 10000;
-            const rand = x - Math.floor(x);
-            return min + rand * (max - min);
-        };
-
-        const simulatedData = {
-            op: 'stats',
-            players: Math.floor(pseudoRandom(5, 50, 1)),
-            playingPlayers: Math.floor(pseudoRandom(2, 30, 2)),
-            uptime: Date.now() - state.startTime + pseudoRandom(86400000, 604800000, 3), // 1-7 days
-            memory: {
-                used: Math.floor(pseudoRandom(150, 400, 4)) * 1000000,
-                free: Math.floor(pseudoRandom(100, 300, 5)) * 1000000,
-                allocated: Math.floor(pseudoRandom(400, 600, 6)) * 1000000,
-                reservable: Math.floor(pseudoRandom(800, 1200, 7)) * 1000000
-            },
-            cpu: {
-                cores: 4,
-                systemLoad: pseudoRandom(0.1, 0.5, 8),
-                lavalinkLoad: pseudoRandom(0.05, 0.3, 9)
-            },
-            frameStats: {
-                sent: Math.floor(pseudoRandom(50000, 150000, 10)),
-                nulled: Math.floor(pseudoRandom(0, 50, 11)),
-                deficit: Math.floor(pseudoRandom(0, 20, 12)),
-                expected: Math.floor(pseudoRandom(50000, 150000, 13))
-            }
-        };
-
-        // Ensure playingPlayers <= players
-        if (simulatedData.playingPlayers > simulatedData.players) {
-            simulatedData.playingPlayers = simulatedData.players;
-        }
-
-        updateStats(simulatedData);
-        updatePing(Math.floor(pseudoRandom(20, 80, 14)));
     }
 
     // ============================================
@@ -709,29 +781,41 @@
     /**
      * Handle refresh button click
      */
-    function handleRefresh() {
+    async function handleRefresh() {
         console.log('Manual refresh triggered');
         
         // Reset state
         state.reconnectAttempts = 0;
-        stopSimulation();
+        stopHttpPolling();
         
         if (state.ws) {
             state.ws.close();
         }
 
         resetStats();
-        
-        // Try connecting again
-        setTimeout(() => {
-            if (canConnectWebSocket()) {
-                connectWebSocket();
-            } else {
-                startSimulation();
-            }
-        }, 500);
-
         showToast('Refreshing connection...', 'info');
+        
+        // Check server first
+        const isAvailable = await checkServerAvailability();
+        
+        if (isAvailable) {
+            // Try WebSocket first
+            setTimeout(() => {
+                connectWebSocket();
+                
+                // If WebSocket doesn't connect in 5s, fallback to HTTP
+                setTimeout(() => {
+                    if (!state.isConnected && !state.httpPollInterval) {
+                        console.log('WebSocket timeout, falling back to HTTP');
+                        startHttpPolling();
+                    }
+                }, 5000);
+            }, 500);
+        } else {
+            showToast('Server is not reachable', 'error');
+            updateStatus('offline');
+            updateConnectionMode('offline');
+        }
     }
 
     /**
@@ -740,13 +824,18 @@
     function handleVisibilityChange() {
         if (document.visibilityState === 'visible') {
             console.log('Page visible, checking connection');
-            if (!state.isConnected && !state.simulationInterval) {
+            
+            // If not connected, try to reconnect
+            if (!state.isConnected && !state.httpPollInterval) {
                 state.reconnectAttempts = 0;
-                if (canConnectWebSocket()) {
-                    connectWebSocket();
-                } else {
-                    startSimulation();
-                }
+                connectWebSocket();
+                
+                // Fallback to HTTP if needed
+                setTimeout(() => {
+                    if (!state.isConnected && !state.httpPollInterval) {
+                        startHttpPolling();
+                    }
+                }, 5000);
             }
         }
     }
@@ -757,11 +846,10 @@
     function handleOnline() {
         console.log('Network connection restored');
         showToast('Network connection restored', 'success');
-        if (!state.isConnected) {
+        
+        if (!state.isConnected && !state.httpPollInterval) {
             state.reconnectAttempts = 0;
-            if (canConnectWebSocket()) {
-                connectWebSocket();
-            }
+            connectWebSocket();
         }
     }
 
@@ -770,6 +858,11 @@
         showToast('Network connection lost', 'error');
         updateStatus('offline');
         updateConnectionMode('offline');
+        
+        stopHttpPolling();
+        if (state.ws) {
+            state.ws.close();
+        }
     }
 
     // ============================================
@@ -779,17 +872,21 @@
     /**
      * Initialize the application
      */
-    function init() {
-        console.log('🎵 Initializing Akira Status Page...');
-        console.log(`📍 Page protocol: ${window.location.protocol}`);
+    async function init() {
+        console.log('🎵 Initializing Akira Status Page v2.1.0...');
+        console.log(`📍 Server: ${CONFIG.server.host}`);
+        console.log(`🔐 Secure: ${CONFIG.server.secure}`);
         console.log(`🔗 WebSocket URL: ${URLS.websocket}`);
-        console.log(`🌐 Can connect WebSocket: ${canConnectWebSocket()}`);
+        console.log(`📊 Stats URL: ${URLS.stats}`);
 
         // Cache DOM elements
         cacheElements();
 
         // Initialize music sources
         initMusicSources();
+
+        // Update server address display
+        setText('serverAddress', CONFIG.server.host);
 
         // Set update interval display
         setText('updateInterval', `${CONFIG.updateInterval / 1000}s`);
@@ -806,21 +903,39 @@
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
 
-        // Start connection
-        if (canConnectWebSocket()) {
+        // Check server availability first
+        console.log('Checking server availability...');
+        const isAvailable = await checkServerAvailability();
+        
+        if (isAvailable) {
+            console.log('✅ Server is available, connecting...');
+            
+            // Try WebSocket first
             connectWebSocket();
             
-            // Fallback to simulation if WebSocket doesn't connect in 5s
+            // Fallback to HTTP polling if WebSocket doesn't connect
             setTimeout(() => {
-                if (!state.isConnected && !state.simulationInterval) {
-                    console.log('WebSocket connection timeout, starting simulation');
-                    startSimulation();
+                if (!state.isConnected && !state.httpPollInterval) {
+                    console.log('WebSocket connection timeout, trying HTTP polling');
+                    startHttpPolling();
                 }
-            }, 5000);
+            }, 8000);
         } else {
-            // Start simulation immediately for HTTPS pages
-            console.log('Starting in simulation mode (HTTPS page with insecure WebSocket)');
-            startSimulation();
+            console.log('❌ Server not available');
+            updateStatus('offline');
+            updateConnectionMode('offline');
+            showToast('Server is not reachable. Please check the connection.', 'error');
+            
+            // Retry check every 30 seconds
+            setInterval(async () => {
+                if (!state.isConnected && !state.httpPollInterval) {
+                    const available = await checkServerAvailability();
+                    if (available) {
+                        showToast('Server is back online!', 'success');
+                        connectWebSocket();
+                    }
+                }
+            }, 30000);
         }
 
         console.log('✅ Akira Status Page initialized');
@@ -842,12 +957,12 @@
         CONFIG,
         URLS,
         refresh: handleRefresh,
-        startSimulation,
-        stopSimulation,
-        isSecurePage,
-        canConnectWebSocket
+        fetchStats,
+        fetchServerInfo,
+        checkServerAvailability,
+        startHttpPolling,
+        stopHttpPolling,
+        connectWebSocket
     };
 
 })();
-
-
