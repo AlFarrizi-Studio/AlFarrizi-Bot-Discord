@@ -14,8 +14,8 @@
     // ============================================
     const CONFIG = {
         server: {
-            host: '212.132.120.102',
-            port: '12115',
+            host: 'https://understand-nec-our-pushed.trycloudflare.com',
+            port: '',
             password: 'AkiraMusic',
             secure: false // Set true if server supports SSL
         },
@@ -849,4 +849,5 @@
     };
 
 })();
+
 
