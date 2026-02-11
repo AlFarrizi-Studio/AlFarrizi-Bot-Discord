@@ -3,10 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NodeLink Status | Real-time Server Monitor</title>
+    <title>Akira Status | Lavalink Server Monitor</title>
+    <meta name="description" content="Status Lavalink Akira dengan real time monitoring dan uptime tracker">
+    <meta name="theme-color" content="#6366f1">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
+    
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
@@ -19,14 +28,19 @@
     <!-- Connection Status Bar -->
     <div class="connection-bar connecting" id="connectionBar"></div>
 
+    <!-- Notification Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
     <div class="container">
         <!-- Header -->
         <header class="header">
             <div class="logo-container">
-                <div class="logo">N</div>
-                <span class="logo-text">NodeLink</span>
+                <div class="logo">
+                    <span class="logo-icon">A</span>
+                </div>
+                <span class="logo-text">Akira Status</span>
             </div>
-            <p class="header-subtitle">Real-time Audio Server Status Monitor</p>
+            <p class="header-subtitle">Status Lavalink Akira dengan Real-time Monitoring & Uptime Tracker</p>
             
             <div class="main-status" id="mainStatus">
                 <div class="status-dot connecting" id="statusDot"></div>
@@ -40,11 +54,15 @@
                 </div>
                 <div class="info-badge">
                     <span class="badge-icon">⏱️</span>
-                    Update Interval: <span>30s</span>
+                    Update: <span id="updateInterval">30s</span>
                 </div>
                 <div class="info-badge">
                     <span class="badge-icon">🔗</span>
                     Protocol: <span>WebSocket v4</span>
+                </div>
+                <div class="info-badge" id="connectionMode">
+                    <span class="badge-icon">📡</span>
+                    Mode: <span id="connectionModeText">Connecting</span>
                 </div>
             </div>
         </header>
@@ -58,6 +76,7 @@
                         <div class="card-icon purple">📡</div>
                         <span>Latency</span>
                     </div>
+                    <div class="card-badge" id="pingStatus">--</div>
                 </div>
                 <div class="ping-display">
                     <span class="ping-value good" id="pingValue">--</span>
@@ -146,7 +165,7 @@
                 </div>
                 <div class="progress-container">
                     <div class="progress-header">
-                        <span class="progress-label">Process Load</span>
+                        <span class="progress-label">Lavalink Load</span>
                         <span class="progress-value" id="processLoadText">--%</span>
                     </div>
                     <div class="progress-bar">
@@ -241,16 +260,16 @@
         <footer class="footer">
             <div class="footer-links">
                 <a href="https://github.com/PerformanC/NodeLink" class="footer-link" target="_blank" rel="noopener noreferrer">
-                    <span>📦</span> GitHub
+                    <span>📦</span> NodeLink
                 </a>
-                <a href="https://github.com/PerformanC/NodeLink/wiki" class="footer-link" target="_blank" rel="noopener noreferrer">
-                    <span>📚</span> Documentation
+                <a href="https://github.com/lavalink-devs/Lavalink" class="footer-link" target="_blank" rel="noopener noreferrer">
+                    <span>🎧</span> Lavalink
                 </a>
-                <a href="https://discord.gg/nodelink" class="footer-link" target="_blank" rel="noopener noreferrer">
-                    <span>💬</span> Discord
+                <a href="#" class="footer-link" id="refreshBtn">
+                    <span>🔄</span> Refresh
                 </a>
             </div>
-            <p class="footer-text">Powered by NodeLink • Lavalink-compatible Audio Server</p>
+            <p class="footer-text">Akira Status • Lavalink Server Monitor</p>
             <p class="last-update">Last updated: <span id="lastUpdate">--</span></p>
         </footer>
     </div>
