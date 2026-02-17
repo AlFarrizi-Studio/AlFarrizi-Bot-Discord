@@ -232,7 +232,14 @@ function renderVersion(data) {
 // Main Data Fetch
 async function fetchData() {
     try {
-        const response = await fetch(CONFIG.apiUrl);
+        // FIX: Tambahkan header untuk skip halaman peringatan Ngrok
+        const response = await fetch(CONFIG.apiUrl, {
+            headers: {
+                'ngrok-skip-browser-warning': 'true',
+                'Accept': 'application/json',
+                'User-Agent': 'AlFarrizi-Monitor/1.0'
+            }
+        });
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
