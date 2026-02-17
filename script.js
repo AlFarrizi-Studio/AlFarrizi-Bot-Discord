@@ -38,9 +38,10 @@ const elements = {
     endpointsGrid: document.getElementById('endpointsGrid'),
     sourcesContainer: document.getElementById('sourcesContainer'),
     sourceCount: document.getElementById('sourceCount'),
-    filtersContainer: document.getElementById('filtersContainer'),
-    filterCount: document.getElementById('filterCount'),
-    refreshCount: document.getElementById('refreshCount')
+    refreshCount: document.getElementById('refreshCount'),
+    // New elements
+    tracksContainer: document.getElementById('tracksContainer'),
+    playerCountBadge: document.getElementById('playerCountBadge')
 };
 
 // Utility Functions
@@ -49,6 +50,14 @@ function formatBytes(megabytes, decimals = 2) {
         return (megabytes / 1024).toFixed(decimals) + ' GB';
     }
     return megabytes.toFixed(decimals) + ' MB';
+}
+
+function formatDuration(ms) {
+    if (!ms || ms <= 0) return '00:00';
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
 }
 
 function getStatusClass(status) {
@@ -89,7 +98,6 @@ function updateGauge(gaugeElement, percentage) {
     const offset = circumference - (percentage / 100) * circumference;
     gaugeElement.style.strokeDashoffset = Math.max(0, offset);
     
-    // Change color based on percentage
     if (percentage > 90) {
         gaugeElement.style.stroke = 'var(--status-critical)';
     } else if (percentage > 70) {
@@ -130,6 +138,10 @@ function updateCountdownDisplay() {
 }
 
 // Data Rendering Functions
+function renderVersion(data) {
+    elements.versionDisplay.textContent = data.version || '--';
+}
+
 function renderServerStatus(data) {
     const { status, statistics } = data;
     
@@ -137,7 +149,6 @@ function renderServerStatus(data) {
     setBadgeStatus(elements.healthyStatus, status.healthy ? 'healthy' : 'unhealthy', 
         status.healthy ? 'Healthy' : 'Unhealthy');
     
-    // Uptime
     elements.uptimeDisplay.textContent = statistics.uptime.formatted;
 }
 
@@ -170,7 +181,6 @@ function renderCPUData(data) {
     elements.cpuLavalinkBar.style.width = Math.min(lavalinkLoad, 100) + '%';
     elements.cpuLavalinkBar.classList.toggle('high', lavalinkLoad > 70);
     
-    // System load can exceed 100%, cap display at 100%
     const systemDisplay = Math.min(systemLoad, 100);
     elements.cpuSystem.textContent = systemLoad + '%';
     elements.cpuSystemBar.style.width = systemDisplay + '%';
@@ -212,27 +222,74 @@ function renderEndpoints(data) {
 function renderFeatures(data) {
     const { features } = data.information;
     
-    // Source Managers
     elements.sourceCount.textContent = features.source_managers.length + ' sources';
     elements.sourcesContainer.innerHTML = features.source_managers
         .map(source => `<span class="source-tag">${source}</span>`)
         .join('');
-    
-    // Filters
-    elements.filterCount.textContent = features.filters.length + ' filters';
-    elements.filtersContainer.innerHTML = features.filters
-        .map(filter => `<div class="filter-tag">${filter}</div>`)
-        .join('');
 }
 
-function renderVersion(data) {
-    elements.versionDisplay.textContent = data.version;
+// NEW: Render Now Playing Tracks
+function renderNowPlaying(data) {
+    const tracks = data.now_playing;
+    const container = elements.tracksContainer;
+    
+    // Update badge
+    elements.playerCountBadge.textContent = `${tracks.length} Active`;
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    if (!tracks || tracks.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 12h8M12 8v8"/>
+                </svg>
+                <span>No track playing</span>
+            </div>
+        `;
+        return;
+    }
+    
+    tracks.forEach(track => {
+        // Standard Lavalink track structure assumptions
+        const info = track.info || {};
+        const title = info.title || 'Unknown Title';
+        const author = info.author || 'Unknown Artist';
+        const duration = info.length || 0;
+        const artwork = info.artworkUrl || 'https://via.placeholder.com/400x225/151c26/e8f0f8?text=No+Cover';
+        const source = track.info.sourceName || 'unknown';
+        
+        const card = document.createElement('div');
+        card.className = 'track-card';
+        
+        card.innerHTML = `
+            <div class="track-cover">
+                <img src="${artwork}" alt="${title}" onerror="this.src='https://via.placeholder.com/400x225/151c26/e8f0f8?text=Error'">
+                <div class="play-overlay">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5,3 19,12 5,21"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="track-info">
+                <span class="track-title" title="${title}">${title}</span>
+                <span class="track-artist" title="${author}">${author}</span>
+                <div class="track-footer">
+                    <span class="track-source">${source}</span>
+                    <span class="track-duration">${formatDuration(duration)}</span>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(card);
+    });
 }
 
 // Main Data Fetch
 async function fetchData() {
     try {
-        // FIX: Tambahkan header untuk skip halaman peringatan Ngrok
         const response = await fetch(CONFIG.apiUrl, {
             headers: {
                 'ngrok-skip-browser-warning': 'true',
@@ -248,6 +305,7 @@ async function fetchData() {
         const result = await response.json();
         
         if (result.success && result.data) {
+            renderVersion(result.data);
             renderServerStatus(result.data);
             renderNetworkData(result.data);
             renderMemoryData(result.data);
@@ -255,7 +313,7 @@ async function fetchData() {
             renderPlayersData(result.data);
             renderEndpoints(result.data);
             renderFeatures(result.data);
-            renderVersion(result.data);
+            renderNowPlaying(result.data); // NEW
             
             updateTime();
             retryCount = 0;
@@ -275,16 +333,9 @@ async function fetchData() {
 
 // Initialization
 function init() {
-    // Initial fetch
     fetchData();
-    
-    // Set up refresh interval
     refreshTimer = setInterval(fetchData, CONFIG.refreshInterval);
-    
-    // Start countdown display
     startCountdown();
-    
-    // Update time display
     updateTime();
     setInterval(updateTime, 1000);
 }
