@@ -1,26 +1,22 @@
 /**
- * Server Monitor Dashboard - Non-SSL (ws://)
- * !!! HANYA BISA DIAKSES SECARA LOKAL (FILE://) !!!
- * !!! TIDAK AKAN BEKERJA DI NETLIFY (HTTPS) !!!
+ * Server Monitor Dashboard - Ngrok REST API Polling
+ * Mode: Fetching JSON every 1 second
  */
 
 const CONFIG = {
-    // Diubah ke ws:// (Non-Secure)
-    wsUrl: 'ws://nc1.lemonhost.me:8080/api/servers/637e6e35-1ebe-4d0d-8560-7c214ba5123b/ws',
-    reconnectInterval: 5000,
-    maxReconnectAttempts: 5,
+    // URL Ngrok Anda (REST API)
+    apiUrl: 'https://unclaiming-fully-camron.ngrok-free.dev/all',
+    updateInterval: 1000, // Refresh setiap 1 detik
     networkChartPoints: 60
 };
 
 const state = {
-    ws: null,
-    reconnectAttempts: 0,
     isConnected: false,
-    isManualClose: false,
     uptimeSeconds: 0,
     pingHistory: [],
     networkHistory: { upload: [], download: [] },
-    lastNetworkBytes: { up: 0, down: 0 }
+    lastNetworkBytes: { up: 0, down: 0 },
+    lastCpuTime: { idle: 0, total: 0 } // Untuk kalkulasi CPU yang akurat
 };
 
 const DOM = {
@@ -64,11 +60,12 @@ const DOM = {
     networkCanvas: document.getElementById('networkCanvas')
 };
 
+// Utilities
 function formatBytes(bytes, decimals = 2) {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const i = Math.floor(Math.log(Math.abs(bytes)) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
 }
 
@@ -102,88 +99,85 @@ function updateConnectionStatus(status, message) {
     }
 }
 
-function connectWebSocket() {
-    if (state.ws) {
-        state.ws.close();
-        state.ws = null;
-    }
-    
-    if (state.reconnectAttempts >= CONFIG.maxReconnectAttempts) {
-        console.warn('Max reconnection attempts reached.');
-        updateConnectionStatus('error', 'Connection Failed');
-        DOM.connectionStatus.onclick = () => {
-            state.reconnectAttempts = 0;
-            connectWebSocket();
-            DOM.connectionStatus.onclick = null;
-        };
-        return;
-    }
-
-    state.reconnectAttempts++;
-    updateConnectionStatus('connecting');
-    console.log(`Attempting WS connection (${state.reconnectAttempts}/${CONFIG.maxReconnectAttempts})...`);
-
+// Core Logic: Fetch Data
+async function fetchData() {
     try {
-        state.ws = new WebSocket(CONFIG.wsUrl);
-        
-        state.ws.onopen = () => {
-            console.log('WebSocket Connected!');
-            state.isConnected = true;
-            state.reconnectAttempts = 0;
-            updateConnectionStatus('connected');
-        };
-        
-        state.ws.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                handleServerData(data);
-            } catch (err) {
-                console.warn('Parse error:', err);
+        const response = await fetch(CONFIG.apiUrl, {
+            headers: {
+                // Header ini penting untuk skip halaman warning Ngrok
+                'ngrok-skip-browser-warning': 'true'
             }
-        };
+        });
+
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
-        state.ws.onerror = (err) => {
-            console.error('WS Error:', err);
-        };
+        const data = await response.json();
         
-        state.ws.onclose = (event) => {
-            state.isConnected = false;
-            
-            let reason = "Unknown";
-            if (event.code === 1006) reason = "Network Error / Mixed Content";
-            
-            console.log(`WS Closed: ${event.code} (${reason})`);
-            
-            if (!state.isManualClose) {
-                updateConnectionStatus('disconnected', `Retrying...`);
-                setTimeout(connectWebSocket, CONFIG.reconnectInterval);
-            }
-        };
+        if (!state.isConnected) {
+            console.log('Data received:', data);
+        }
         
+        state.isConnected = true;
+        updateConnectionStatus('connected');
+        handleServerData(data);
+
     } catch (err) {
-        console.error('Init WS Failed:', err);
-        updateConnectionStatus('error', 'Init Failed');
+        console.error('Fetch error:', err);
+        state.isConnected = false;
+        updateConnectionStatus('error', 'Connection Failed');
     }
 }
 
 function handleServerData(data) {
     updateTimestamp();
-    
+
+    // PING (Seringnya tidak ada di REST API statis, jadi kita simulasi atau ambil jika ada)
     if (data.ping !== undefined) updatePing(data.ping);
+
+    // UPTIME
     if (data.uptime !== undefined) updateUptime(data.uptime);
-    if (data.cpu !== undefined) updateCPU(data.cpu);
-    if (data.memory !== undefined) updateMemory(data.memory);
-    if (data.disk !== undefined) updateDisk(data.disk);
-    if (data.network !== undefined) updateNetwork(data.network);
-    
-    if (data.stats) {
-        if (data.stats.ping) updatePing(data.stats.ping);
-        if (data.stats.uptime) updateUptime(data.stats.uptime);
-        if (data.stats.cpu) updateCPU(data.stats.cpu);
-        if (data.stats.memory) updateMemory(data.stats.memory);
-        if (data.stats.disk) updateDisk(data.stats.disk);
-        if (data.stats.network) updateNetwork(data.stats.network);
+
+    // CPU - Handle berbagai format data
+    // Format: { usage: 20 } atau { cpu: { usage: 20 } } atau { cpu: 20 }
+    let cpuUsage = 0;
+    if (typeof data.cpu === 'object') {
+        // Jika object, mungkin perlu kalkulasi dari times (idle/total) atau ambil property usage
+        if (data.cpu.usage !== undefined) cpuUsage = data.cpu.usage;
+        else if (data.cpu.used !== undefined) cpuUsage = data.cpu.used;
+    } else if (typeof data.cpu === 'number') {
+        cpuUsage = data.cpu;
     }
+    
+    // Jika ada data times (raw CPU ticks), kalkulasi lebih akurat
+    if (data.cpu && data.cpu.times) {
+        const t = data.cpu.times;
+        const total = Object.values(t).reduce((a, b) => a + b, 0);
+        const idle = t.idle || 0;
+        
+        const totalDiff = total - state.lastCpuTime.total;
+        const idleDiff = idle - state.lastCpuTime.idle;
+        
+        if (state.lastCpuTime.total > 0 && totalDiff > 0) {
+            cpuUsage = 100 - (100 * idleDiff / totalDiff);
+        }
+        
+        state.lastCpuTime.total = total;
+        state.lastCpuTime.idle = idle;
+    }
+    
+    updateCPU(cpuUsage);
+    
+    // Jika ada info cores
+    if(data.cpu && data.cpu.cores) DOM.cpuCores.textContent = data.cpu.cores;
+
+    // MEMORY
+    if (data.memory !== undefined) updateMemory(data.memory);
+
+    // DISK
+    if (data.disk !== undefined) updateDisk(data.disk);
+
+    // NETWORK
+    if (data.network !== undefined) updateNetwork(data.network);
 }
 
 function updateTimestamp() {
@@ -287,12 +281,17 @@ function updateNetwork(net) {
         up = net.tx || net.upload || net.bytesSent || 0;
         down = net.rx || net.download || net.bytesReceived || 0;
     }
+    
+    // Calculate speed (delta per second)
     const speedUp = Math.max(0, up - state.lastNetworkBytes.up);
     const speedDown = Math.max(0, down - state.lastNetworkBytes.down);
+    
     state.lastNetworkBytes.up = up;
     state.lastNetworkBytes.down = down;
+    
     DOM.networkUp.textContent = formatBytes(speedUp) + '/s';
     DOM.networkDown.textContent = formatBytes(speedDown) + '/s';
+    
     state.networkHistory.upload.push(speedUp);
     state.networkHistory.download.push(speedDown);
     if (state.networkHistory.upload.length > CONFIG.networkChartPoints) {
@@ -333,15 +332,21 @@ function drawNetworkChart() {
 }
 
 function init() {
-    console.log('Dashboard Initializing (Mode: Local File / Non-SSL)');
-    console.log('Target:', CONFIG.wsUrl);
+    console.log('Dashboard Initializing (REST Polling Mode)');
+    console.log('Target:', CONFIG.apiUrl);
     
     for (let i = 0; i < CONFIG.networkChartPoints; i++) {
         state.networkHistory.upload.push(0);
         state.networkHistory.download.push(0);
     }
+    
     DOM.cpuCores.textContent = '--';
-    connectWebSocket();
+    DOM.pingStatus.textContent = 'Calculating...';
+    
+    // Start Polling
+    fetchData(); // Immediate first load
+    setInterval(fetchData, CONFIG.updateInterval);
+    
     window.addEventListener('resize', drawNetworkChart);
     setInterval(updateTimestamp, 1000);
     updateTimestamp();
