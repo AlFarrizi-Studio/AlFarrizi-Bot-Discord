@@ -8,7 +8,7 @@ const CONFIG = {
 // State
 let refreshTimer = null;
 let countdownTimer = null;
-let countdownValue = 1;
+let countdownValue = 5;
 let retryCount = 0;
 
 // DOM Elements Cache
@@ -47,9 +47,7 @@ const elements = {
 
 // Utility Functions
 function formatBytes(megabytes, decimals = 2) {
-    if (megabytes >= 1024) {
-        return (megabytes / 1024).toFixed(decimals) + ' GB';
-    }
+    if (megabytes >= 1024) return (megabytes / 1024).toFixed(decimals) + ' GB';
     return megabytes.toFixed(decimals) + ' MB';
 }
 
@@ -62,21 +60,11 @@ function formatDuration(ms) {
 }
 
 function getStatusClass(status) {
-    const statusMap = {
-        'online': 'online',
-        'offline': 'offline',
-        'healthy': 'healthy',
-        'unhealthy': 'unhealthy',
-        'true': 'healthy',
-        'false': 'unhealthy',
-        'good': 'good',
-        'poor': 'poor',
-        'error': 'error',
-        'normal': 'normal',
-        'critical': 'critical',
-        'high': 'high'
-    };
-    return statusMap[String(status).toLowerCase()] || '';
+    const s = String(status).toLowerCase();
+    if (['online', 'healthy', 'good', 'perfect', 'normal'].includes(s)) return 'online';
+    if (['warning', 'average', 'poor'].includes(s)) return 'warning';
+    if (['error', 'critical', 'bad', 'unhealthy'].includes(s)) return 'critical';
+    return 'online';
 }
 
 function setBadgeStatus(element, status, text = null) {
@@ -99,34 +87,23 @@ function updateGauge(gaugeElement, percentage) {
     const offset = circumference - (percentage / 100) * circumference;
     gaugeElement.style.strokeDashoffset = Math.max(0, offset);
     
-    if (percentage > 90) {
-        gaugeElement.style.stroke = 'var(--status-critical)';
-    } else if (percentage > 70) {
-        gaugeElement.style.stroke = 'var(--status-warning)';
-    } else {
-        gaugeElement.style.stroke = 'var(--status-online)';
-    }
+    if (percentage > 90) gaugeElement.style.stroke = 'var(--status-critical)';
+    else if (percentage > 70) gaugeElement.style.stroke = 'var(--status-warning)';
+    else gaugeElement.style.stroke = 'var(--status-online)';
 }
 
 function updateTime() {
     const now = new Date();
-    const timeStr = now.toLocaleTimeString('id-ID', { 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        second: '2-digit' 
-    });
-    elements.lastUpdate.textContent = timeStr;
+    elements.lastUpdate.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function startCountdown() {
-    countdownValue = 1;
+    countdownValue = 5;
     updateCountdownDisplay();
-    
     if (countdownTimer) clearInterval(countdownTimer);
-    
     countdownTimer = setInterval(() => {
         countdownValue--;
-        if (countdownValue <= 0) countdownValue = 1;
+        if (countdownValue <= 0) countdownValue = 5;
         updateCountdownDisplay();
     }, 1000);
 }
@@ -135,68 +112,110 @@ function updateCountdownDisplay() {
     elements.refreshCount.textContent = `Next: ${countdownValue}s`;
 }
 
-// Data Rendering Functions
+// ==========================================
+// DATA RENDERING FUNCTIONS (UPDATED STRUCTURE)
+// ==========================================
+
 function renderVersion(data) {
-    elements.versionDisplay.textContent = data.version || '--';
+    // NEW: data.server.version.semver
+    const version = data.server?.version?.semver || data.version || '--';
+    elements.versionDisplay.textContent = version;
 }
 
 function renderServerStatus(data) {
-    const { status, statistics } = data;
+    // NEW: data.performance.health
+    const health = data.performance?.health || { status: 'Unknown' };
+    const uptime = data.performance?.uptime || { formatted: '--' };
+
+    // Server dianggap online jika fetch berhasil
+    setBadgeStatus(elements.serverStatus, 'online', 'Online');
     
-    setBadgeStatus(elements.serverStatus, status.server, status.server);
-    setBadgeStatus(elements.healthyStatus, status.healthy ? 'healthy' : 'unhealthy', 
-        status.healthy ? 'Healthy' : 'Unhealthy');
+    // Status kesehatan (Critical, Good, etc.)
+    setBadgeStatus(elements.healthyStatus, health.status, health.status);
     
-    elements.uptimeDisplay.textContent = statistics.uptime.formatted;
+    elements.uptimeDisplay.textContent = uptime.formatted;
 }
 
 function renderNetworkData(data) {
-    const { network } = data;
+    // NEW: data.response_time_ms ( ada di root data)
+    const latency = data.response_time_ms;
     
-    elements.latencyOverall.textContent = network.latency.overall_ms;
-    elements.latencyAvg.textContent = network.latency.average_ms.toFixed(2) + ' ms';
-    setLatencyStatus(elements.latencyStatus, network.latency.status);
+    elements.latencyOverall.textContent = latency;
+    elements.latencyAvg.textContent = latency + ' ms'; // Average sama dengan response time
+    
+    // Logika status sederhana
+    let status = 'good';
+    if (latency > 300) status = 'poor';
+    if (latency > 500) status = 'error';
+    
+    setLatencyStatus(elements.latencyStatus, status);
 }
 
 function renderMemoryData(data) {
-    const { memory } = data.statistics;
+    // NEW: data.performance.memory
+    const mem = data.performance?.memory;
+    if (!mem) return;
+
+    // Parsing "92.26%" -> 92.26
+    const percentRaw = parseFloat(mem.usage_percent);
+    const percent = isNaN(percentRaw) ? 0 : percentRaw;
+
+    elements.memoryPercent.textContent = percent.toFixed(1);
+    updateGauge(elements.memoryGauge, percent);
     
-    elements.memoryPercent.textContent = memory.usage.percentage.toFixed(1);
-    updateGauge(elements.memoryGauge, memory.usage.percentage);
-    setMemoryStatus(elements.memoryStatus, memory.usage.status);
+    // Status logic
+    let status = 'normal';
+    if (percent > 90) status = 'critical';
+    else if (percent > 70) status = 'warning';
     
-    elements.memUsed.textContent = formatBytes(memory.used.megabytes);
-    elements.memFree.textContent = formatBytes(memory.free.megabytes);
+    setMemoryStatus(elements.memoryStatus, status);
+    
+    // Parsing "85.45 MB"
+    elements.memUsed.textContent = mem.used?.formatted || '-- MB';
+    elements.memFree.textContent = mem.free?.formatted || '-- GB';
 }
 
 function renderCPUData(data) {
-    const { cpu } = data.statistics;
-    
-    const lavalinkLoad = cpu.lavalink.load_percentage;
-    const systemLoad = cpu.system.load_percentage;
-    
-    elements.cpuLavalink.textContent = lavalinkLoad + '%';
+    // NEW: data.performance.cpu
+    const cpu = data.performance?.cpu;
+    if (!cpu) return;
+
+    // Parsing "1651.00%" -> 1651
+    const systemLoad = parseFloat(cpu.system_load);
+    const lavalinkLoad = parseFloat(cpu.lavalink_load);
+
+    elements.cpuLavalink.textContent = lavalinkLoad.toFixed(2) + '%';
     elements.cpuLavalinkBar.style.width = Math.min(lavalinkLoad, 100) + '%';
     elements.cpuLavalinkBar.classList.toggle('high', lavalinkLoad > 70);
-    
+
     const systemDisplay = Math.min(systemLoad, 100);
-    elements.cpuSystem.textContent = systemLoad + '%';
+    elements.cpuSystem.textContent = systemLoad.toFixed(2) + '%';
     elements.cpuSystemBar.style.width = systemDisplay + '%';
     elements.cpuSystemBar.classList.toggle('high', systemLoad > 70);
-    
+
     elements.cpuCores.textContent = cpu.cores;
 }
 
 function renderPlayersData(data) {
-    const { players } = data.statistics;
-    
+    // NEW: data.audio_stats.players
+    const players = data.audio_stats?.players;
+    if (!players) return;
+
     elements.playersTotal.textContent = players.total;
     elements.playersPlaying.textContent = players.playing;
     elements.playersIdle.textContent = players.idle;
-    elements.playersActivity.textContent = (players.activity_rate * 100).toFixed(1) + '%';
+    
+    const activity = players.total > 0 ? ((players.playing / players.total) * 100).toFixed(1) : 0;
+    elements.playersActivity.textContent = activity + '%';
 }
 
 function renderEndpoints(data) {
+    // CHECK: Jika endpoints tidak ada di JSON baru, skip atau clear
+    if (!data.network || !data.network.endpoints) {
+        elements.endpointsGrid.innerHTML = '<div class="empty-state" style="grid-column:1/-1; padding:10px; border:none;">Endpoint data unavailable</div>';
+        return;
+    }
+    
     const { endpoints } = data.network;
     const grid = elements.endpointsGrid;
     grid.innerHTML = '';
@@ -204,7 +223,6 @@ function renderEndpoints(data) {
     Object.entries(endpoints).forEach(([name, info]) => {
         const item = document.createElement('div');
         item.className = `endpoint-item ${info.status}`;
-        
         item.innerHTML = `
             <span class="endpoint-name">/${name}</span>
             <div class="endpoint-latency">
@@ -212,23 +230,34 @@ function renderEndpoints(data) {
                 <span class="endpoint-status-dot ${info.status}"></span>
             </div>
         `;
-        
         grid.appendChild(item);
     });
 }
 
 function renderFeatures(data) {
-    const { features } = data.information;
+    // NEW: data.server.capabilities
+    const caps = data.server?.capabilities || { sources: [], filters: [] };
+
+    // 1. Source Managers
+    const sourceManagers = caps.sources || [];
+    elements.sourceCount.textContent = sourceManagers.length;
     
-    // Sources
-    elements.sourceCount.textContent = features.source_managers.length;
-    elements.sourcesContainer.innerHTML = features.source_managers
-        .map(source => `<span class="source-tag">${source}</span>`)
+    elements.sourcesContainer.innerHTML = sourceManagers
+        .map(source => {
+            const iconPath = `assets/icons/${source.toLowerCase()}.png`;
+            return `
+                <span class="source-tag">
+                    <img src="${iconPath}" class="source-icon" alt="${source}" onerror="this.style.display='none'">
+                    ${source}
+                </span>
+            `;
+        })
         .join('');
         
-    // Filters
-    elements.filterCount.textContent = features.filters.length;
-    elements.filtersContainer.innerHTML = features.filters
+    // 2. Filters
+    const audioFilters = caps.filters || [];
+    elements.filterCount.textContent = audioFilters.length;
+    elements.filtersContainer.innerHTML = audioFilters
         .map(filter => `<span class="filter-tag">${filter}</span>`)
         .join('');
 }
@@ -243,8 +272,7 @@ function renderNowPlaying(data) {
         container.innerHTML = `
             <div class="empty-state">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;opacity:0.5">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M8 12h8M12 8v8"/>
+                    <circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/>
                 </svg>
                 <span>No track playing</span>
             </div>
@@ -255,12 +283,17 @@ function renderNowPlaying(data) {
     container.innerHTML = '';
     
     tracks.forEach(track => {
-        const info = track.info || {};
-        const title = info.title || 'Unknown Title';
-        const author = info.author || 'Unknown Artist';
-        const duration = info.length || 0;
-        const artwork = info.artworkUrl || 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f3b5.png';
-        const source = track.info.sourceName || 'unknown';
+        // NEW STRUCTURE MAPPING
+        const meta = track.metadata || {};
+        const playback = track.playback_state || {};
+        
+        const title = meta.title || 'Unknown Title';
+        const author = meta.author || 'Unknown Artist';
+        const artwork = meta.artwork_url || 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f3b5.png';
+        const source = meta.source || 'unknown';
+        
+        const duration = playback.duration?.raw || 0;
+        const position = playback.position?.raw || 0;
         
         const card = document.createElement('div');
         card.className = 'track-card';
@@ -269,9 +302,7 @@ function renderNowPlaying(data) {
             <div class="track-cover">
                 <img src="${artwork}" alt="${title}" onerror="this.src='https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f3b5.png'">
                 <div class="play-overlay">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                        <polygon points="5,3 19,12 5,21"/>
-                    </svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
                 </div>
             </div>
             <div class="track-info">
@@ -279,7 +310,7 @@ function renderNowPlaying(data) {
                 <span class="track-artist" title="${author}">${author}</span>
                 <div class="track-footer">
                     <span class="track-source">${source}</span>
-                    <span class="track-duration">${formatDuration(duration)}</span>
+                    <span class="track-duration">${formatDuration(position)} / ${formatDuration(duration)}</span>
                 </div>
             </div>
         `;
@@ -299,9 +330,7 @@ async function fetchData() {
             }
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const result = await response.json();
         
@@ -341,14 +370,12 @@ function init() {
     setInterval(updateTime, 1000);
 }
 
-// Start when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
 }
 
-// Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     if (refreshTimer) clearInterval(refreshTimer);
     if (countdownTimer) clearInterval(countdownTimer);
