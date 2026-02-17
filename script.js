@@ -47,7 +47,9 @@ const elements = {
 
 // Utility Functions
 function formatBytes(megabytes, decimals = 2) {
-    if (megabytes >= 1024) return (megabytes / 1024).toFixed(decimals) + ' GB';
+    if (megabytes >= 1024) {
+        return (megabytes / 1024).toFixed(decimals) + ' GB';
+    }
     return megabytes.toFixed(decimals) + ' MB';
 }
 
@@ -61,9 +63,18 @@ function formatDuration(ms) {
 
 function getStatusClass(status) {
     const statusMap = {
-        'online': 'online', 'offline': 'offline', 'healthy': 'healthy', 'unhealthy': 'unhealthy',
-        'true': 'healthy', 'false': 'unhealthy', 'good': 'good', 'poor': 'poor', 'error': 'error',
-        'normal': 'normal', 'critical': 'critical', 'high': 'high'
+        'online': 'online',
+        'offline': 'offline',
+        'healthy': 'healthy',
+        'unhealthy': 'unhealthy',
+        'true': 'healthy',
+        'false': 'unhealthy',
+        'good': 'good',
+        'poor': 'poor',
+        'error': 'error',
+        'normal': 'normal',
+        'critical': 'critical',
+        'high': 'high'
     };
     return statusMap[String(status).toLowerCase()] || '';
 }
@@ -88,20 +99,31 @@ function updateGauge(gaugeElement, percentage) {
     const offset = circumference - (percentage / 100) * circumference;
     gaugeElement.style.strokeDashoffset = Math.max(0, offset);
     
-    if (percentage > 90) gaugeElement.style.stroke = 'var(--status-critical)';
-    else if (percentage > 70) gaugeElement.style.stroke = 'var(--status-warning)';
-    else gaugeElement.style.stroke = 'var(--status-online)';
+    if (percentage > 90) {
+        gaugeElement.style.stroke = 'var(--status-critical)';
+    } else if (percentage > 70) {
+        gaugeElement.style.stroke = 'var(--status-warning)';
+    } else {
+        gaugeElement.style.stroke = 'var(--status-online)';
+    }
 }
 
 function updateTime() {
     const now = new Date();
-    elements.lastUpdate.textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const timeStr = now.toLocaleTimeString('id-ID', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit' 
+    });
+    elements.lastUpdate.textContent = timeStr;
 }
 
 function startCountdown() {
     countdownValue = 1;
     updateCountdownDisplay();
+    
     if (countdownTimer) clearInterval(countdownTimer);
+    
     countdownTimer = setInterval(() => {
         countdownValue--;
         if (countdownValue <= 0) countdownValue = 1;
@@ -120,13 +142,17 @@ function renderVersion(data) {
 
 function renderServerStatus(data) {
     const { status, statistics } = data;
+    
     setBadgeStatus(elements.serverStatus, status.server, status.server);
-    setBadgeStatus(elements.healthyStatus, status.healthy ? 'healthy' : 'unhealthy', status.healthy ? 'Healthy' : 'Unhealthy');
+    setBadgeStatus(elements.healthyStatus, status.healthy ? 'healthy' : 'unhealthy', 
+        status.healthy ? 'Healthy' : 'Unhealthy');
+    
     elements.uptimeDisplay.textContent = statistics.uptime.formatted;
 }
 
 function renderNetworkData(data) {
     const { network } = data;
+    
     elements.latencyOverall.textContent = network.latency.overall_ms;
     elements.latencyAvg.textContent = network.latency.average_ms.toFixed(2) + ' ms';
     setLatencyStatus(elements.latencyStatus, network.latency.status);
@@ -134,32 +160,36 @@ function renderNetworkData(data) {
 
 function renderMemoryData(data) {
     const { memory } = data.statistics;
+    
     elements.memoryPercent.textContent = memory.usage.percentage.toFixed(1);
     updateGauge(elements.memoryGauge, memory.usage.percentage);
     setMemoryStatus(elements.memoryStatus, memory.usage.status);
+    
     elements.memUsed.textContent = formatBytes(memory.used.megabytes);
     elements.memFree.textContent = formatBytes(memory.free.megabytes);
 }
 
 function renderCPUData(data) {
     const { cpu } = data.statistics;
+    
     const lavalinkLoad = cpu.lavalink.load_percentage;
     const systemLoad = cpu.system.load_percentage;
-
+    
     elements.cpuLavalink.textContent = lavalinkLoad + '%';
     elements.cpuLavalinkBar.style.width = Math.min(lavalinkLoad, 100) + '%';
     elements.cpuLavalinkBar.classList.toggle('high', lavalinkLoad > 70);
-
+    
     const systemDisplay = Math.min(systemLoad, 100);
     elements.cpuSystem.textContent = systemLoad + '%';
     elements.cpuSystemBar.style.width = systemDisplay + '%';
     elements.cpuSystemBar.classList.toggle('high', systemLoad > 70);
-
+    
     elements.cpuCores.textContent = cpu.cores;
 }
 
 function renderPlayersData(data) {
     const { players } = data.statistics;
+    
     elements.playersTotal.textContent = players.total;
     elements.playersPlaying.textContent = players.playing;
     elements.playersIdle.textContent = players.idle;
@@ -174,6 +204,7 @@ function renderEndpoints(data) {
     Object.entries(endpoints).forEach(([name, info]) => {
         const item = document.createElement('div');
         item.className = `endpoint-item ${info.status}`;
+        
         item.innerHTML = `
             <span class="endpoint-name">/${name}</span>
             <div class="endpoint-latency">
@@ -181,36 +212,23 @@ function renderEndpoints(data) {
                 <span class="endpoint-status-dot ${info.status}"></span>
             </div>
         `;
+        
         grid.appendChild(item);
     });
 }
 
-// UPDATED: Render dengan Custom PNG per Source
 function renderFeatures(data) {
-    // Safety check
-    const info = data.information || {};
-    const features = info.features || { source_managers: [], filters: [] };
-
-    // 1. Source Managers
-    const sourceManagers = features.source_managers || [];
-    elements.sourceCount.textContent = sourceManagers.length;
+    const { features } = data.information;
     
-    elements.sourcesContainer.innerHTML = sourceManagers.map(source => {
-        // Logika path: assets/icons/youtube.png, assets/icons/spotify.png, dll
-        const iconPath = `assets/icons/${source.toLowerCase()}.png`;
+    // Sources
+    elements.sourceCount.textContent = features.source_managers.length;
+    elements.sourcesContainer.innerHTML = features.source_managers
+        .map(source => `<span class="source-tag">${source}</span>`)
+        .join('');
         
-        return `
-            <span class="source-tag">
-                <img src="${iconPath}" class="source-icon" alt="${source}" onerror="this.style.display='none'">
-                ${source}
-            </span>
-        `;
-    }).join('');
-        
-    // 2. Filters
-    const audioFilters = features.filters || [];
-    elements.filterCount.textContent = audioFilters.length;
-    elements.filtersContainer.innerHTML = audioFilters
+    // Filters
+    elements.filterCount.textContent = features.filters.length;
+    elements.filtersContainer.innerHTML = features.filters
         .map(filter => `<span class="filter-tag">${filter}</span>`)
         .join('');
 }
@@ -225,7 +243,8 @@ function renderNowPlaying(data) {
         container.innerHTML = `
             <div class="empty-state">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;opacity:0.5">
-                    <circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/>
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 12h8M12 8v8"/>
                 </svg>
                 <span>No track playing</span>
             </div>
@@ -250,7 +269,9 @@ function renderNowPlaying(data) {
             <div class="track-cover">
                 <img src="${artwork}" alt="${title}" onerror="this.src='https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f3b5.png'">
                 <div class="play-overlay">
-                    <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5,3 19,12 5,21"/>
+                    </svg>
                 </div>
             </div>
             <div class="track-info">
@@ -278,7 +299,9 @@ async function fetchData() {
             }
         });
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
         
         const result = await response.json();
         
@@ -318,12 +341,14 @@ function init() {
     setInterval(updateTime, 1000);
 }
 
+// Start when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
 }
 
+// Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     if (refreshTimer) clearInterval(refreshTimer);
     if (countdownTimer) clearInterval(countdownTimer);
