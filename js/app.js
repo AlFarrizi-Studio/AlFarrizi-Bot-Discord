@@ -689,7 +689,7 @@ function getSourceIcon(source) {
 }
 
 // ============================================
-// SOURCES PAGE (Load Once)
+// SOURCES PAGE (Load Once) - FIXED STRUCTURE
 // ============================================
 function updateSources(data) {
     if (!elements.sourcesGrid) return;
@@ -713,13 +713,20 @@ function updateSources(data) {
     var html = '';
     sorted.forEach(function(source, i) {
         var info = getSourceInfo(source);
+        // FIXED: Structure now matches Audio Filters - checkmark in header (top right)
         html += '<div class="source-card animate-fade-in-up" style="animation-delay: ' + (i * 0.03) + 's">' +
-            '<div class="source-icon ' + info.iconClass + '"><i class="' + info.icon + '"></i></div>' +
-            '<div class="source-info">' +
-                '<h4 class="source-name">' + escapeHtml(info.name) + '</h4>' +
-                '<p class="source-status">Available</p>' +
+            // Header: Icon + Name on LEFT, Checkmark on RIGHT (same as filter-header)
+            '<div class="source-header">' +
+                '<div class="source-title">' +
+                    '<div class="source-icon ' + info.iconClass + '"><i class="' + info.icon + '"></i></div>' +
+                    '<span class="source-name">' + escapeHtml(info.name) + '</span>' +
+                '</div>' +
+                '<div class="source-check"><i class="fas fa-check"></i></div>' +
             '</div>' +
-            '<div class="source-check"><i class="fas fa-check"></i></div>' +
+            // Description
+            '<p class="source-description">' + escapeHtml(info.description) + '</p>' +
+            // Status at bottom
+            '<span class="source-status">Available</span>' +
         '</div>';
     });
     
@@ -728,46 +735,46 @@ function updateSources(data) {
 
 function getSourceInfo(source) {
     var map = {
-        youtube: { name: 'YouTube', icon: 'fab fa-youtube', iconClass: 'youtube' },
-        spotify: { name: 'Spotify', icon: 'fab fa-spotify', iconClass: 'spotify' },
-        soundcloud: { name: 'SoundCloud', icon: 'fab fa-soundcloud', iconClass: 'soundcloud' },
-        deezer: { name: 'Deezer', icon: 'fas fa-compact-disc', iconClass: 'deezer' },
-        applemusic: { name: 'Apple Music', icon: 'fab fa-apple', iconClass: 'applemusic' },
-        tidal: { name: 'Tidal', icon: 'fas fa-water', iconClass: 'tidal' },
-        amazonmusic: { name: 'Amazon Music', icon: 'fab fa-amazon', iconClass: 'amazon' },
-        pandora: { name: 'Pandora', icon: 'fas fa-podcast', iconClass: 'default' },
-        qobuz: { name: 'Qobuz', icon: 'fas fa-headphones', iconClass: 'default' },
-        twitch: { name: 'Twitch', icon: 'fab fa-twitch', iconClass: 'twitch' },
-        vimeo: { name: 'Vimeo', icon: 'fab fa-vimeo-v', iconClass: 'vimeo' },
-        bilibili: { name: 'Bilibili', icon: 'fas fa-tv', iconClass: 'default' },
-        nicovideo: { name: 'Niconico', icon: 'fas fa-play-circle', iconClass: 'default' },
-        instagram: { name: 'Instagram', icon: 'fab fa-instagram', iconClass: 'instagram' },
-        twitter: { name: 'Twitter/X', icon: 'fab fa-twitter', iconClass: 'twitter' },
-        reddit: { name: 'Reddit', icon: 'fab fa-reddit-alien', iconClass: 'reddit' },
-        tumblr: { name: 'Tumblr', icon: 'fab fa-tumblr', iconClass: 'default' },
-        pinterest: { name: 'Pinterest', icon: 'fab fa-pinterest', iconClass: 'default' },
-        telegram: { name: 'Telegram', icon: 'fab fa-telegram', iconClass: 'telegram' },
-        bluesky: { name: 'Bluesky', icon: 'fas fa-cloud', iconClass: 'default' },
-        kwai: { name: 'Kwai', icon: 'fas fa-video', iconClass: 'default' },
-        bandcamp: { name: 'Bandcamp', icon: 'fab fa-bandcamp', iconClass: 'bandcamp' },
-        mixcloud: { name: 'Mixcloud', icon: 'fab fa-mixcloud', iconClass: 'mixcloud' },
-        audiomack: { name: 'Audiomack', icon: 'fas fa-headphones-alt', iconClass: 'default' },
-        audius: { name: 'Audius', icon: 'fas fa-wave-square', iconClass: 'default' },
-        yandexmusic: { name: 'Yandex Music', icon: 'fab fa-yandex', iconClass: 'default' },
-        vkmusic: { name: 'VK Music', icon: 'fab fa-vk', iconClass: 'default' },
-        jiosaavn: { name: 'JioSaavn', icon: 'fas fa-music', iconClass: 'default' },
-        gaana: { name: 'Gaana', icon: 'fas fa-music', iconClass: 'default' },
-        genius: { name: 'Genius', icon: 'fas fa-microphone-alt', iconClass: 'default' },
-        lastfm: { name: 'Last.fm', icon: 'fab fa-lastfm', iconClass: 'default' },
-        shazam: { name: 'Shazam', icon: 'fas fa-bolt', iconClass: 'default' },
-        letrasmus: { name: 'Letras', icon: 'fas fa-align-left', iconClass: 'default' },
-        flowery: { name: 'Flowery TTS', icon: 'fas fa-comment-dots', iconClass: 'default' },
-        'google-tts': { name: 'Google TTS', icon: 'fab fa-google', iconClass: 'default' },
-        http: { name: 'HTTP Streams', icon: 'fas fa-globe', iconClass: 'http' },
-        local: { name: 'Local Files', icon: 'fas fa-folder-open', iconClass: 'default' },
-        rss: { name: 'RSS Feeds', icon: 'fas fa-rss', iconClass: 'default' },
-        songlink: { name: 'Songlink', icon: 'fas fa-link', iconClass: 'default' },
-        eternalbox: { name: 'Eternal Box', icon: 'fas fa-infinity', iconClass: 'default' },
+        youtube: { name: 'YouTube', icon: 'fab fa-youtube', iconClass: 'youtube', description: 'Stream music and videos directly from YouTube' },
+        spotify: { name: 'Spotify', icon: 'fab fa-spotify', iconClass: 'spotify', description: 'Access millions of songs from Spotify library' },
+        soundcloud: { name: 'SoundCloud', icon: 'fab fa-soundcloud', iconClass: 'soundcloud', description: 'Discover and stream independent artists' },
+        deezer: { name: 'Deezer', icon: 'fas fa-compact-disc', iconClass: 'deezer', description: 'High-quality music streaming service' },
+        applemusic: { name: 'Apple Music', icon: 'fab fa-apple', iconClass: 'applemusic', description: 'Stream from Apple Music premium library' },
+        tidal: { name: 'Tidal', icon: 'fas fa-water', iconClass: 'tidal', description: 'High-fidelity lossless audio streaming' },
+        amazonmusic: { name: 'Amazon Music', icon: 'fab fa-amazon', iconClass: 'amazon', description: 'Stream from Amazon Music catalog' },
+        pandora: { name: 'Pandora', icon: 'fas fa-podcast', iconClass: 'default', description: 'Personalized radio and music streaming' },
+        qobuz: { name: 'Qobuz', icon: 'fas fa-headphones', iconClass: 'default', description: 'Hi-res audio streaming service' },
+        twitch: { name: 'Twitch', icon: 'fab fa-twitch', iconClass: 'twitch', description: 'Stream audio from Twitch streams and VODs' },
+        vimeo: { name: 'Vimeo', icon: 'fab fa-vimeo-v', iconClass: 'vimeo', description: 'Stream audio from Vimeo videos' },
+        bilibili: { name: 'Bilibili', icon: 'fas fa-tv', iconClass: 'default', description: 'Stream from Bilibili video platform' },
+        nicovideo: { name: 'Niconico', icon: 'fas fa-play-circle', iconClass: 'default', description: 'Japanese video sharing platform' },
+        instagram: { name: 'Instagram', icon: 'fab fa-instagram', iconClass: 'instagram', description: 'Stream audio from Instagram content' },
+        twitter: { name: 'Twitter/X', icon: 'fab fa-twitter', iconClass: 'twitter', description: 'Stream audio from Twitter/X posts' },
+        reddit: { name: 'Reddit', icon: 'fab fa-reddit-alien', iconClass: 'reddit', description: 'Stream media from Reddit posts' },
+        tumblr: { name: 'Tumblr', icon: 'fab fa-tumblr', iconClass: 'default', description: 'Stream audio from Tumblr posts' },
+        pinterest: { name: 'Pinterest', icon: 'fab fa-pinterest', iconClass: 'default', description: 'Stream media from Pinterest' },
+        telegram: { name: 'Telegram', icon: 'fab fa-telegram', iconClass: 'telegram', description: 'Stream audio from Telegram channels' },
+        bluesky: { name: 'Bluesky', icon: 'fas fa-cloud', iconClass: 'default', description: 'Stream from Bluesky social platform' },
+        kwai: { name: 'Kwai', icon: 'fas fa-video', iconClass: 'default', description: 'Stream from Kwai video platform' },
+        bandcamp: { name: 'Bandcamp', icon: 'fab fa-bandcamp', iconClass: 'bandcamp', description: 'Support artists with direct streaming' },
+        mixcloud: { name: 'Mixcloud', icon: 'fab fa-mixcloud', iconClass: 'mixcloud', description: 'Stream DJ mixes and radio shows' },
+        audiomack: { name: 'Audiomack', icon: 'fas fa-headphones-alt', iconClass: 'default', description: 'Free music streaming platform' },
+        audius: { name: 'Audius', icon: 'fas fa-wave-square', iconClass: 'default', description: 'Decentralized music streaming' },
+        yandexmusic: { name: 'Yandex Music', icon: 'fab fa-yandex', iconClass: 'yandex', description: 'Russian music streaming service' },
+        vkmusic: { name: 'VK Music', icon: 'fab fa-vk', iconClass: 'default', description: 'Stream music from VK platform' },
+        jiosaavn: { name: 'JioSaavn', icon: 'fas fa-music', iconClass: 'jiosaavn', description: 'Indian music streaming service' },
+        gaana: { name: 'Gaana', icon: 'fas fa-music', iconClass: 'default', description: 'Indian music streaming platform' },
+        genius: { name: 'Genius', icon: 'fas fa-microphone-alt', iconClass: 'default', description: 'Lyrics and music knowledge' },
+        lastfm: { name: 'Last.fm', icon: 'fab fa-lastfm', iconClass: 'default', description: 'Music discovery and scrobbling' },
+        shazam: { name: 'Shazam', icon: 'fas fa-bolt', iconClass: 'default', description: 'Music recognition service' },
+        letrasmus: { name: 'Letras', icon: 'fas fa-align-left', iconClass: 'default', description: 'Song lyrics database' },
+        flowery: { name: 'Flowery TTS', icon: 'fas fa-comment-dots', iconClass: 'flowery', description: 'Text-to-speech with natural voices' },
+        'google-tts': { name: 'Google TTS', icon: 'fab fa-google', iconClass: 'default', description: 'Google text-to-speech service' },
+        http: { name: 'HTTP Streams', icon: 'fas fa-globe', iconClass: 'http', description: 'Play from direct HTTP/HTTPS links' },
+        local: { name: 'Local Files', icon: 'fas fa-folder-open', iconClass: 'default', description: 'Play local audio files' },
+        rss: { name: 'RSS Feeds', icon: 'fas fa-rss', iconClass: 'default', description: 'Stream from podcast RSS feeds' },
+        songlink: { name: 'Songlink', icon: 'fas fa-link', iconClass: 'default', description: 'Universal music link resolver' },
+        eternalbox: { name: 'Eternal Box', icon: 'fas fa-infinity', iconClass: 'default', description: 'Infinite jukebox for songs' },
     };
     
     var key = source.toLowerCase().replace(/[-_\s]/g, '');
@@ -778,7 +785,8 @@ function getSourceInfo(source) {
     return {
         name: capitalize(source.replace(/[-_]/g, ' ')),
         icon: 'fas fa-music',
-        iconClass: 'default'
+        iconClass: 'default',
+        description: 'Audio source for music streaming'
     };
 }
 
