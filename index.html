@@ -1,334 +1,1262 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Al Farrizi NodeLink Monitor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>Al Farrizi Music Bot - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="https://cdn.discordapp.com/embed/avatars/0.png">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="grid-bg"></div>
-    <div class="scan-line"></div>
-    
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo-section">
-                <div class="logo-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-                    </svg>
-                </div>
-                <div class="logo-text">
-                    <h1>Al Farrizi NodeLink</h1>
-                    <span class="subtitle">Real-time Status Monitor</span>
-                </div>
-            </div>
-            <div class="header-status">
-                <div class="live-indicator">
-                    <span class="pulse"></span>
-                    <span>LIVE</span>
-                </div>
-                <div class="last-update" id="lastUpdate">--:--:--</div>
-            </div>
-        </header>
+    <!-- Background -->
+    <div class="background-image"></div>
+    <div class="background-overlay"></div>
 
-        <!-- Server Info Banner -->
-        <section class="server-banner">
-            <div class="server-details">
-                <div class="server-item">
-                    <span class="label">Host</span>
-                    <span class="value mono">38.83.138.59</span>
-                </div>
-                <div class="server-item">
-                    <span class="label">Port</span>
-                    <span class="value mono">25830</span>
-                </div>
-                <div class="server-item">
-                    <span class="label">Password</span>
-                    <a href="https://discord.gg/Urc3xG9h8f" target="_blank" class="value mono link">https://discord.gg/Urc3xG9h8f</a>
-                </div>
-                <div class="server-item">
-                    <span class="label">Secure</span>
-                    <span class="value mono secure-false">false</span>
-                </div>
-                <div class="server-item">
-                    <span class="label">Version</span>
-                    <span class="value mono" id="versionDisplay">--</span>
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Theme Customizer Panel -->
+    <div class="theme-customizer" id="themeCustomizer">
+        <div class="customizer-header">
+            <h3>Theme Settings</h3>
+            <button class="close-customizer" onclick="toggleCustomizer()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="customizer-content">
+            <div class="customizer-section">
+                <label>Theme Mode</label>
+                <div class="theme-toggle-buttons">
+                    <button class="theme-btn active" data-theme="dark" onclick="setTheme('dark')">
+                        <i data-feather="moon"></i> Dark
+                    </button>
+                    <button class="theme-btn" data-theme="light" onclick="setTheme('light')">
+                        <i data-feather="sun"></i> Light
+                    </button>
                 </div>
             </div>
-        </section>
+            <div class="customizer-section">
+                <label>Primary Color</label>
+                <div class="color-options">
+                    <button class="color-option active" style="--color: #6366f1" data-color="#6366f1" onclick="setPrimaryColor('#6366f1')"></button>
+                    <button class="color-option" style="--color: #8b5cf6" data-color="#8b5cf6" onclick="setPrimaryColor('#8b5cf6')"></button>
+                    <button class="color-option" style="--color: #ec4899" data-color="#ec4899" onclick="setPrimaryColor('#ec4899')"></button>
+                    <button class="color-option" style="--color: #14b8a6" data-color="#14b8a6" onclick="setPrimaryColor('#14b8a6')"></button>
+                    <button class="color-option" style="--color: #f59e0b" data-color="#f59e0b" onclick="setPrimaryColor('#f59e0b')"></button>
+                    <button class="color-option" style="--color: #ef4444" data-color="#ef4444" onclick="setPrimaryColor('#ef4444')"></button>
+                </div>
+            </div>
+            <div class="customizer-section">
+                <label>Background Image URL</label>
+                <input type="text" id="bgImageInput" class="customizer-input" placeholder="Enter image URL...">
+                <button class="customizer-apply-btn" onclick="applyBackgroundImage()">Apply</button>
+            </div>
+        </div>
+    </div>
 
-        <!-- Main Status Cards -->
-        <section class="status-grid">
-            <!-- Server Status -->
-            <div class="card status-card">
-                <div class="card-header">
-                    <div class="card-icon server">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="2" y="2" width="20" height="8" rx="2"/>
-                            <rect x="2" y="14" width="20" height="8" rx="2"/>
-                            <circle cx="6" cy="6" r="1" fill="currentColor"/>
-                            <circle cx="6" cy="18" r="1" fill="currentColor"/>
-                        </svg>
-                    </div>
-                    <h2>Server Status</h2>
-                </div>
-                <div class="card-body">
-                    <div class="status-row">
-                        <span class="status-label">Server</span>
-                        <span class="status-badge" id="serverStatus">--</span>
-                    </div>
-                    <div class="status-row">
-                        <span class="status-label">Healthy</span>
-                        <span class="status-badge" id="healthyStatus">--</span>
-                    </div>
-                    <div class="status-row">
-                        <span class="status-label">Uptime</span>
-                        <span class="status-value mono" id="uptimeDisplay">--</span>
+    <!-- Settings Button (Floating) -->
+    <button class="settings-fab" onclick="toggleCustomizer()">
+        <i data-feather="settings"></i>
+    </button>
+
+    <!-- Main Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-container">
+                    <img src="https://cdn.discordapp.com/embed/avatars/0.png" alt="Bot Logo" class="bot-logo">
+                    <div class="logo-text">
+                        <h1>Al Farrizi</h1>
+                        <span class="version-badge">v4.23.7</span>
                     </div>
                 </div>
+                <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+                    <i data-feather="chevron-left"></i>
+                </button>
             </div>
 
-            <!-- Network Latency -->
-            <div class="card network-card">
-                <div class="card-header">
-                    <div class="card-icon network">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                        </svg>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" data-page="dashboard">
+                        <a href="#dashboard">
+                            <i data-feather="home"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="commands">
+                        <a href="#commands">
+                            <i data-feather="terminal"></i>
+                            <span>Commands</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="stats">
+                        <a href="#stats">
+                            <i data-feather="bar-chart-2"></i>
+                            <span>Stats Resource</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="sources">
+                        <a href="#sources">
+                            <i data-feather="music"></i>
+                            <span>Source Managers</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="filters">
+                        <a href="#filters">
+                            <i data-feather="sliders"></i>
+                            <span>Audio Filters</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="tos">
+                        <a href="#tos">
+                            <i data-feather="file-text"></i>
+                            <span>Terms Of Service</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="support">
+                        <a href="#support">
+                            <i data-feather="life-buoy"></i>
+                            <span>Support</span>
+                        </a>
+                    </li>
+                    <li class="nav-item" data-page="feedback">
+                        <a href="#feedback">
+                            <i data-feather="message-square"></i>
+                            <span>Feedback</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <img src="https://cdn.discordapp.com/embed/avatars/1.png" alt="User Avatar" class="user-avatar">
+                    <div class="user-details">
+                        <span class="user-name">Al Farrizi</span>
+                        <span class="user-status">Administrator</span>
                     </div>
-                    <h2>Network Latency</h2>
                 </div>
-                <div class="card-body">
-                    <div class="latency-display">
-                        <div class="latency-main">
-                            <span class="latency-value mono" id="latencyOverall">--</span>
-                            <span class="latency-unit">ms</span>
+            </div>
+        </aside>
+
+        <!-- Mobile Menu Toggle -->
+        <button class="mobile-menu-toggle" id="mobileMenuToggle" onclick="toggleMobileSidebar()">
+            <i data-feather="menu"></i>
+        </button>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Dashboard Page -->
+            <section class="page active" id="page-dashboard">
+                <div class="page-header">
+                    <div class="welcome-section">
+                        <h1>Welcome back, <span class="highlight">Al Farrizi</span> 👋</h1>
+                        <p>Manage your Discord Music Bot with ease. Monitor stats, configure settings, and control audio playback from this dashboard.</p>
+                    </div>
+                    <div class="header-actions">
+                        <div class="status-indicator online">
+                            <span class="pulse"></span>
+                            <span>Bot Online</span>
                         </div>
-                        <div class="latency-status" id="latencyStatus">--</div>
-                    </div>
-                    <div class="latency-avg">
-                        <span>Average:</span>
-                        <span class="mono" id="latencyAvg">-- ms</span>
                     </div>
                 </div>
-            </div>
 
-            <!-- Memory Usage -->
-            <div class="card memory-card">
-                <div class="card-header">
-                    <div class="card-icon memory">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="4" y="4" width="16" height="16" rx="2"/>
-                            <rect x="8" y="8" width="8" height="8"/>
-                            <path d="M8 2v2M16 2v2M8 20v2M16 20v2M2 8h2M2 16h2M20 8h2M20 16h2"/>
-                        </svg>
+                <div class="cards-grid">
+                    <div class="info-card">
+                        <div class="card-icon purple">
+                            <i data-feather="disc"></i>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Bot Name</span>
+                            <h3>Al Farrizi Music</h3>
+                        </div>
                     </div>
-                    <h2>Memory Usage</h2>
+                    <div class="info-card">
+                        <div class="card-icon blue">
+                            <i data-feather="git-branch"></i>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Bot Version</span>
+                            <h3>v4.23.7</h3>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon green">
+                            <i data-feather="activity"></i>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Bot Status</span>
+                            <h3>Online</h3>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon orange">
+                            <i data-feather="server"></i>
+                        </div>
+                        <div class="card-content">
+                            <span class="card-label">Active Servers</span>
+                            <h3>1,247</h3>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="memory-gauge">
-                        <div class="gauge-ring">
-                            <svg viewBox="0 0 120 120">
-                                <circle class="gauge-bg" cx="60" cy="60" r="50"/>
-                                <circle class="gauge-fill" id="memoryGauge" cx="60" cy="60" r="50"/>
+
+                <div class="section-grid">
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2><i data-feather="clock"></i> Recent Activity</h2>
+                        </div>
+                        <div class="activity-list">
+                            <div class="activity-item">
+                                <div class="activity-icon play">
+                                    <i data-feather="play"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <span class="activity-title">Now Playing: "Starboy - The Weeknd"</span>
+                                    <span class="activity-time">2 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon join">
+                                    <i data-feather="log-in"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <span class="activity-title">Joined voice channel in "Gaming Hub"</span>
+                                    <span class="activity-time">5 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon command">
+                                    <i data-feather="terminal"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <span class="activity-title">Command executed: /play</span>
+                                    <span class="activity-time">5 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon filter">
+                                    <i data-feather="sliders"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <span class="activity-title">Filter applied: Bass Boost</span>
+                                    <span class="activity-time">8 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon queue">
+                                    <i data-feather="list"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <span class="activity-title">5 tracks added to queue</span>
+                                    <span class="activity-time">12 minutes ago</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2><i data-feather="headphones"></i> Now Playing</h2>
+                        </div>
+                        <div class="now-playing">
+                            <div class="album-art">
+                                <img src="https://i.scdn.co/image/ab67616d0000b2734718e2b124f79258be7bc452" alt="Album Art">
+                                <div class="playing-animation">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                            <div class="track-info">
+                                <h3>Starboy</h3>
+                                <p>The Weeknd ft. Daft Punk</p>
+                                <div class="progress-container">
+                                    <div class="progress-bar">
+                                        <div class="progress" style="width: 45%"></div>
+                                    </div>
+                                    <div class="time-info">
+                                        <span>1:47</span>
+                                        <span>3:50</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="player-controls">
+                                <button class="control-btn"><i data-feather="skip-back"></i></button>
+                                <button class="control-btn play-btn"><i data-feather="pause"></i></button>
+                                <button class="control-btn"><i data-feather="skip-forward"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Commands Page -->
+            <section class="page" id="page-commands">
+                <div class="page-header">
+                    <h1><i data-feather="terminal"></i> Bot Commands</h1>
+                    <p>Complete list of available commands for Al Farrizi Music Bot</p>
+                </div>
+
+                <div class="commands-container">
+                    <!-- Music Commands -->
+                    <div class="command-category glass-card">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <h2><i data-feather="music"></i> Music Commands</h2>
+                            <i data-feather="chevron-down" class="chevron"></i>
+                        </div>
+                        <div class="category-content">
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/play &lt;song&gt;</code>
+                                    <span>Play a song from YouTube, Spotify, or SoundCloud</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/play')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/pause</code>
+                                    <span>Pause the current track</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/pause')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/resume</code>
+                                    <span>Resume playback</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/resume')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/stop</code>
+                                    <span>Stop playback and clear the queue</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/stop')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/skip</code>
+                                    <span>Skip to the next track</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/skip')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/nowplaying</code>
+                                    <span>Show current playing track info</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/nowplaying')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/seek &lt;time&gt;</code>
+                                    <span>Seek to a specific time in the track</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/seek')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/volume &lt;1-100&gt;</code>
+                                    <span>Adjust playback volume</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/volume')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Queue Commands -->
+                    <div class="command-category glass-card">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <h2><i data-feather="list"></i> Queue Commands</h2>
+                            <i data-feather="chevron-down" class="chevron"></i>
+                        </div>
+                        <div class="category-content">
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/queue</code>
+                                    <span>Display the current queue</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/queue')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/shuffle</code>
+                                    <span>Shuffle the queue</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/shuffle')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/loop &lt;track|queue|off&gt;</code>
+                                    <span>Set loop mode</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/loop')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/remove &lt;position&gt;</code>
+                                    <span>Remove a track from queue</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/remove')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/clear</code>
+                                    <span>Clear the entire queue</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/clear')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/move &lt;from&gt; &lt;to&gt;</code>
+                                    <span>Move a track in the queue</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/move')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Commands -->
+                    <div class="command-category glass-card">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <h2><i data-feather="sliders"></i> Filter Commands</h2>
+                            <i data-feather="chevron-down" class="chevron"></i>
+                        </div>
+                        <div class="category-content">
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/filter bassboost &lt;level&gt;</code>
+                                    <span>Apply bass boost filter</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/filter bassboost')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/filter nightcore</code>
+                                    <span>Apply nightcore effect</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/filter nightcore')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/filter vaporwave</code>
+                                    <span>Apply vaporwave effect</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/filter vaporwave')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/filter karaoke</code>
+                                    <span>Remove vocals from track</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/filter karaoke')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/filter reset</code>
+                                    <span>Reset all filters</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/filter reset')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Admin Commands -->
+                    <div class="command-category glass-card">
+                        <div class="category-header" onclick="toggleCategory(this)">
+                            <h2><i data-feather="shield"></i> Admin Commands</h2>
+                            <i data-feather="chevron-down" class="chevron"></i>
+                        </div>
+                        <div class="category-content">
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/settings</code>
+                                    <span>View bot settings for this server</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/settings')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/setprefix &lt;prefix&gt;</code>
+                                    <span>Change the command prefix</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/setprefix')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/setdj &lt;role&gt;</code>
+                                    <span>Set DJ role for music commands</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/setdj')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/setchannel &lt;channel&gt;</code>
+                                    <span>Set music command channel</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/setchannel')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                            <div class="command-item">
+                                <div class="command-info">
+                                    <code>/announce &lt;on|off&gt;</code>
+                                    <span>Toggle now playing announcements</span>
+                                </div>
+                                <button class="copy-btn" onclick="copyCommand('/announce')">
+                                    <i data-feather="copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Stats Resource Page -->
+            <section class="page" id="page-stats">
+                <div class="page-header">
+                    <h1><i data-feather="bar-chart-2"></i> Stats Resource</h1>
+                    <p>Real-time statistics and system resource monitoring</p>
+                </div>
+
+                <div class="stats-overview">
+                    <div class="stat-card glass-card">
+                        <div class="stat-icon purple">
+                            <i data-feather="play-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Total Tracks Played</span>
+                            <span class="stat-value" id="totalTracks">125,847</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-icon blue">
+                            <i data-feather="server"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Total Servers</span>
+                            <span class="stat-value" id="totalServers">1,247</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-icon green">
+                            <i data-feather="radio"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Active Tracks</span>
+                            <span class="stat-value" id="activeTracks">43</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-card">
+                        <div class="stat-icon orange">
+                            <i data-feather="users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Current Listeners</span>
+                            <span class="stat-value" id="currentListeners">892</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-grid">
+                    <div class="chart-card glass-card">
+                        <div class="card-header">
+                            <h2><i data-feather="trending-up"></i> Player Statistics</h2>
+                            <select class="chart-period" id="playerChartPeriod" onchange="updatePlayerChart()">
+                                <option value="7">Last 7 Days</option>
+                                <option value="30">Last 30 Days</option>
+                                <option value="90">Last 90 Days</option>
+                            </select>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="playerChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card glass-card">
+                        <div class="card-header">
+                            <h2><i data-feather="headphones"></i> Now Playing Statistics</h2>
+                            <select class="chart-period" id="nowPlayingChartPeriod" onchange="updateNowPlayingChart()">
+                                <option value="24">Last 24 Hours</option>
+                                <option value="7">Last 7 Days</option>
+                            </select>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="nowPlayingChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="system-resources glass-card">
+                    <div class="card-header">
+                        <h2><i data-feather="cpu"></i> System Resources</h2>
+                        <span class="live-indicator">
+                            <span class="live-dot"></span>
+                            Live
+                        </span>
+                    </div>
+                    <div class="resources-grid">
+                        <div class="resource-item">
+                            <div class="resource-header">
+                                <span class="resource-label">CPU Usage</span>
+                                <span class="resource-value" id="cpuValue">24%</span>
+                            </div>
+                            <div class="resource-bar">
+                                <div class="resource-progress cpu" id="cpuProgress" style="width: 24%"></div>
+                            </div>
+                            <div class="resource-chart-mini">
+                                <canvas id="cpuChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="resource-item">
+                            <div class="resource-header">
+                                <span class="resource-label">Memory Usage</span>
+                                <span class="resource-value" id="memoryValue">2.4 GB / 8 GB</span>
+                            </div>
+                            <div class="resource-bar">
+                                <div class="resource-progress memory" id="memoryProgress" style="width: 30%"></div>
+                            </div>
+                            <div class="resource-chart-mini">
+                                <canvas id="memoryChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="resource-item">
+                            <div class="resource-header">
+                                <span class="resource-label">Disk Usage</span>
+                                <span class="resource-value" id="diskValue">45.2 GB / 100 GB</span>
+                            </div>
+                            <div class="resource-bar">
+                                <div class="resource-progress disk" id="diskProgress" style="width: 45%"></div>
+                            </div>
+                            <div class="resource-chart-mini">
+                                <canvas id="diskChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Source Managers Page -->
+            <section class="page" id="page-sources">
+                <div class="page-header">
+                    <h1><i data-feather="music"></i> Source Managers</h1>
+                    <p>Configure and manage audio source connections</p>
+                </div>
+
+                <div class="sources-grid">
+                    <div class="source-card glass-card">
+                        <div class="source-header">
+                            <div class="source-logo youtube">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                </svg>
+                            </div>
+                            <div class="source-info">
+                                <h3>YouTube</h3>
+                                <span class="source-status online">Connected</span>
+                            </div>
+                        </div>
+                        <div class="source-stats">
+                            <div class="source-stat">
+                                <span class="stat-num">45,230</span>
+                                <span class="stat-label">Tracks Played</span>
+                            </div>
+                            <div class="source-stat">
+                                <span class="stat-num">98.5%</span>
+                                <span class="stat-label">Uptime</span>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked onchange="toggleSource('youtube', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="source-card glass-card">
+                        <div class="source-header">
+                            <div class="source-logo spotify">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+                                </svg>
+                            </div>
+                            <div class="source-info">
+                                <h3>Spotify</h3>
+                                <span class="source-status online">Connected</span>
+                            </div>
+                        </div>
+                        <div class="source-stats">
+                            <div class="source-stat">
+                                <span class="stat-num">38,421</span>
+                                <span class="stat-label">Tracks Played</span>
+                            </div>
+                            <div class="source-stat">
+                                <span class="stat-num">99.2%</span>
+                                <span class="stat-label">Uptime</span>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked onchange="toggleSource('spotify', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="source-card glass-card">
+                        <div class="source-header">
+                            <div class="source-logo soundcloud">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154.233 2.105c.007.058.05.098.101.098.05 0 .09-.04.099-.098l.255-2.105-.27-2.154c-.01-.057-.049-.1-.084-.1zm-.9 1.025c-.053 0-.096.043-.105.097l-.161 1.234.161 1.201c.01.054.052.097.105.097.052 0 .092-.043.101-.097l.183-1.201-.183-1.234c-.01-.054-.049-.097-.101-.097zm1.832-1.203c-.061 0-.11.054-.117.11l-.22 2.328.22 2.236c.007.055.056.109.117.109.06 0 .107-.054.117-.109l.251-2.236-.251-2.328c-.01-.056-.057-.11-.117-.11zm.932-.281c-.071 0-.127.058-.134.121l-.208 2.609.208 2.478c.007.063.063.12.134.12.07 0 .124-.057.133-.12l.236-2.478-.236-2.609c-.01-.063-.063-.121-.133-.121zm.963-.224c-.08 0-.141.065-.149.133l-.199 2.833.199 2.655c.008.069.069.133.149.133.079 0 .139-.064.148-.133l.226-2.655-.226-2.833c-.009-.068-.069-.133-.148-.133zm1.004-.095c-.088 0-.159.072-.165.145l-.19 2.928.19 2.743c.006.072.077.144.165.144.087 0 .156-.072.164-.144l.216-2.743-.216-2.928c-.008-.073-.077-.145-.164-.145zm1.047.101c-.097 0-.175.08-.182.158l-.179 2.826.179 2.735c.007.078.085.157.182.157.097 0 .173-.079.181-.157l.203-2.735-.203-2.826c-.008-.078-.084-.158-.181-.158zm1.099.238c-.106 0-.19.087-.197.172l-.17 2.588.17 2.592c.007.085.091.171.197.171.105 0 .188-.086.196-.171l.193-2.592-.193-2.588c-.008-.085-.091-.172-.196-.172zm1.149.227c-.114 0-.205.094-.212.184l-.16 2.361.16 2.454c.007.09.098.183.212.183.113 0 .201-.093.21-.183l.183-2.454-.183-2.361c-.009-.09-.097-.184-.21-.184zm1.193.199c-.124 0-.221.101-.228.196l-.15 2.162.15 2.306c.007.095.104.195.228.195.123 0 .218-.1.227-.195l.172-2.306-.172-2.162c-.009-.095-.104-.196-.227-.196zm4.97-.313c-.261 0-.476.205-.488.458l-.106 2.475.106 2.304c.012.253.227.457.488.457.26 0 .474-.204.487-.457l.122-2.304-.122-2.475c-.013-.253-.227-.458-.487-.458zm-3.72.293c-.133 0-.238.108-.245.208l-.141 1.963.141 2.157c.007.1.112.207.245.207.132 0 .235-.107.244-.207l.162-2.157-.162-1.963c-.009-.1-.112-.208-.244-.208zm1.261.048c-.142 0-.253.115-.26.22l-.133 1.915.133 2.063c.007.105.118.219.26.219.141 0 .25-.114.259-.219l.152-2.063-.152-1.915c-.009-.105-.118-.22-.259-.22zm1.303.028c-.151 0-.269.122-.277.232l-.123 1.887.123 1.979c.008.11.126.231.277.231.15 0 .266-.121.275-.231l.141-1.979-.141-1.887c-.009-.11-.125-.232-.275-.232zm1.357.015c-.16 0-.286.129-.293.245l-.113 1.872.113 1.891c.007.115.133.244.293.244.159 0 .283-.129.292-.244l.13-1.891-.13-1.872c-.009-.116-.133-.245-.292-.245zm4.013-.129c-.206 0-.37.164-.379.365l-.076 2.001.076 1.891c.009.2.173.365.379.365.205 0 .368-.165.378-.365l.088-1.891-.088-2.001c-.01-.201-.173-.365-.378-.365zm-2.678.129c-.168 0-.303.136-.311.257l-.103 1.872.103 1.856c.008.121.143.257.311.257.167 0 .3-.136.309-.257l.119-1.856-.119-1.872c-.009-.121-.142-.257-.309-.257zm1.336 0c-.178 0-.32.143-.328.269l-.094 1.872.094 1.82c.008.126.15.269.328.269.177 0 .317-.143.327-.269l.108-1.82-.108-1.872c-.01-.126-.15-.269-.327-.269zm2.691.085c-.215 0-.388.172-.397.377l-.068 1.787.068 1.762c.009.205.182.376.397.376.214 0 .386-.171.396-.376l.078-1.762-.078-1.787c-.01-.205-.182-.377-.396-.377zm1.372.107c-.225 0-.405.179-.414.389l-.059 1.68.059 1.643c.009.21.189.389.414.389.224 0 .402-.179.412-.389l.068-1.643-.068-1.68c-.01-.21-.188-.389-.412-.389zm2.765-.073c-.235 0-.423.186-.432.401l-.049 1.753.049 1.704c.009.215.197.4.432.4.234 0 .42-.185.43-.4l.057-1.704-.057-1.753c-.01-.215-.196-.401-.43-.401zm-1.37.073c-.234 0-.419.186-.429.401l-.049 1.68.049 1.643c.01.215.195.4.429.4.233 0 .417-.185.428-.4l.057-1.643-.057-1.68c-.011-.215-.195-.401-.428-.401z"/>
+                                </svg>
+                            </div>
+                            <div class="source-info">
+                                <h3>SoundCloud</h3>
+                                <span class="source-status online">Connected</span>
+                            </div>
+                        </div>
+                        <div class="source-stats">
+                            <div class="source-stat">
+                                <span class="stat-num">22,156</span>
+                                <span class="stat-label">Tracks Played</span>
+                            </div>
+                            <div class="source-stat">
+                                <span class="stat-num">97.8%</span>
+                                <span class="stat-label">Uptime</span>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked onchange="toggleSource('soundcloud', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="source-card glass-card">
+                        <div class="source-header">
+                            <div class="source-logo http">
+                                <i data-feather="link"></i>
+                            </div>
+                            <div class="source-info">
+                                <h3>Local / HTTP Stream</h3>
+                                <span class="source-status online">Available</span>
+                            </div>
+                        </div>
+                        <div class="source-stats">
+                            <div class="source-stat">
+                                <span class="stat-num">5,840</span>
+                                <span class="stat-label">Tracks Played</span>
+                            </div>
+                            <div class="source-stat">
+                                <span class="stat-num">100%</span>
+                                <span class="stat-label">Uptime</span>
+                            </div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" checked onchange="toggleSource('http', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Audio Filters Page -->
+            <section class="page" id="page-filters">
+                <div class="page-header">
+                    <h1><i data-feather="sliders"></i> Audio Filters</h1>
+                    <p>Customize audio output with real-time filters</p>
+                </div>
+
+                <div class="filters-container">
+                    <div class="filter-card glass-card">
+                        <div class="filter-header">
+                            <div class="filter-title">
+                                <i data-feather="volume-2"></i>
+                                <h3>Bass Boost</h3>
+                            </div>
+                            <label class="toggle-switch mini">
+                                <input type="checkbox" id="bassBoostToggle" onchange="toggleFilter('bassBoost')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="filter-control">
+                            <input type="range" min="0" max="100" value="50" class="filter-slider" id="bassBoostSlider" oninput="updateFilterValue('bassBoost', this.value)">
+                            <div class="filter-value">
+                                <span id="bassBoostValue">50</span>%
+                            </div>
+                        </div>
+                        <div class="filter-presets">
+                            <button class="preset-btn" onclick="setFilterPreset('bassBoost', 25)">Light</button>
+                            <button class="preset-btn active" onclick="setFilterPreset('bassBoost', 50)">Medium</button>
+                            <button class="preset-btn" onclick="setFilterPreset('bassBoost', 75)">Heavy</button>
+                            <button class="preset-btn" onclick="setFilterPreset('bassBoost', 100)">Extreme</button>
+                        </div>
+                    </div>
+
+                    <div class="filter-card glass-card">
+                        <div class="filter-header">
+                            <div class="filter-title">
+                                <i data-feather="zap"></i>
+                                <h3>Nightcore</h3>
+                            </div>
+                            <label class="toggle-switch mini">
+                                <input type="checkbox" id="nightcoreToggle" onchange="toggleFilter('nightcore')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="filter-control">
+                            <input type="range" min="0" max="100" value="30" class="filter-slider" id="nightcoreSlider" oninput="updateFilterValue('nightcore', this.value)">
+                            <div class="filter-value">
+                                <span id="nightcoreValue">30</span>%
+                            </div>
+                        </div>
+                        <div class="filter-description">
+                            <p>Speed up and pitch shift for that classic nightcore effect</p>
+                        </div>
+                    </div>
+
+                    <div class="filter-card glass-card">
+                        <div class="filter-header">
+                            <div class="filter-title">
+                                <i data-feather="sunset"></i>
+                                <h3>Vaporwave</h3>
+                            </div>
+                            <label class="toggle-switch mini">
+                                <input type="checkbox" id="vaporwaveToggle" onchange="toggleFilter('vaporwave')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="filter-control">
+                            <input type="range" min="0" max="100" value="40" class="filter-slider" id="vaporwaveSlider" oninput="updateFilterValue('vaporwave', this.value)">
+                            <div class="filter-value">
+                                <span id="vaporwaveValue">40</span>%
+                            </div>
+                        </div>
+                        <div class="filter-description">
+                            <p>Slow down tracks for aesthetic vaporwave vibes</p>
+                        </div>
+                    </div>
+
+                    <div class="filter-card glass-card">
+                        <div class="filter-header">
+                            <div class="filter-title">
+                                <i data-feather="mic"></i>
+                                <h3>Karaoke</h3>
+                            </div>
+                            <label class="toggle-switch mini">
+                                <input type="checkbox" id="karaokeToggle" onchange="toggleFilter('karaoke')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="filter-control">
+                            <input type="range" min="0" max="100" value="80" class="filter-slider" id="karaokeSlider" oninput="updateFilterValue('karaoke', this.value)">
+                            <div class="filter-value">
+                                <span id="karaokeValue">80</span>%
+                            </div>
+                        </div>
+                        <div class="filter-description">
+                            <p>Remove or reduce vocals from tracks</p>
+                        </div>
+                    </div>
+
+                    <div class="filter-card glass-card wide">
+                        <div class="filter-header">
+                            <div class="filter-title">
+                                <i data-feather="fast-forward"></i>
+                                <h3>Speed & Pitch</h3>
+                            </div>
+                            <button class="reset-btn" onclick="resetSpeedPitch()">
+                                <i data-feather="refresh-cw"></i>
+                                Reset
+                            </button>
+                        </div>
+                        <div class="dual-filter-control">
+                            <div class="filter-control-item">
+                                <label>Speed</label>
+                                <input type="range" min="50" max="200" value="100" class="filter-slider" id="speedSlider" oninput="updateFilterValue('speed', this.value)">
+                                <div class="filter-value">
+                                    <span id="speedValue">1.0</span>x
+                                </div>
+                            </div>
+                            <div class="filter-control-item">
+                                <label>Pitch</label>
+                                <input type="range" min="50" max="200" value="100" class="filter-slider" id="pitchSlider" oninput="updateFilterValue('pitch', this.value)">
+                                <div class="filter-value">
+                                    <span id="pitchValue">1.0</span>x
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="filter-card glass-card wide">
+                        <div class="filter-header">
+                            <div class="filter-title">
+                                <i data-feather="bar-chart"></i>
+                                <h3>Equalizer</h3>
+                            </div>
+                            <label class="toggle-switch mini">
+                                <input type="checkbox" id="eqToggle" onchange="toggleFilter('eq')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="equalizer-container">
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(0, this.value)">
+                                <span>63Hz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(1, this.value)">
+                                <span>125Hz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(2, this.value)">
+                                <span>250Hz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(3, this.value)">
+                                <span>500Hz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(4, this.value)">
+                                <span>1kHz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(5, this.value)">
+                                <span>2kHz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(6, this.value)">
+                                <span>4kHz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(7, this.value)">
+                                <span>8kHz</span>
+                            </div>
+                            <div class="eq-band">
+                                <input type="range" min="-12" max="12" value="0" class="eq-slider" orient="vertical" oninput="updateEQ(8, this.value)">
+                                <span>16kHz</span>
+                            </div>
+                        </div>
+                        <div class="eq-presets">
+                            <button class="preset-btn" onclick="setEQPreset('flat')">Flat</button>
+                            <button class="preset-btn" onclick="setEQPreset('bass')">Bass Boost</button>
+                            <button class="preset-btn" onclick="setEQPreset('treble')">Treble</button>
+                            <button class="preset-btn" onclick="setEQPreset('vocal')">Vocal</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Terms of Service Page -->
+            <section class="page" id="page-tos">
+                <div class="page-header">
+                    <h1><i data-feather="file-text"></i> Terms Of Service</h1>
+                    <p>Please read our terms carefully before using the bot</p>
+                </div>
+
+                <div class="tos-container glass-card">
+                    <div class="tos-content">
+                        <div class="tos-section">
+                            <h2>1. Acceptance of Terms</h2>
+                            <p>By using Al Farrizi Music Bot ("the Bot"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Bot.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>2. Description of Service</h2>
+                            <p>Al Farrizi Music Bot is a Discord music bot that allows users to play music from various sources including YouTube, Spotify, and SoundCloud in Discord voice channels.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>3. User Conduct</h2>
+                            <p>Users agree to:</p>
+                            <ul>
+                                <li>Use the Bot in accordance with Discord's Terms of Service and Community Guidelines</li>
+                                <li>Not use the Bot for any illegal purposes or to violate copyright laws</li>
+                                <li>Not attempt to exploit, hack, or disrupt the Bot's services</li>
+                                <li>Not spam commands or abuse the Bot's features</li>
+                                <li>Respect other users and maintain a positive environment</li>
+                            </ul>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>4. Privacy Policy</h2>
+                            <p>The Bot may collect certain data necessary for its operation, including:</p>
+                            <ul>
+                                <li>Server IDs and Channel IDs for configuration purposes</li>
+                                <li>User IDs for queue management and permissions</li>
+                                <li>Command usage statistics for improving the service</li>
+                            </ul>
+                            <p>We do not sell or share your data with third parties. Data is only used to provide and improve the Bot's services.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>5. Copyright and DMCA</h2>
+                            <p>The Bot streams audio from third-party platforms. Users are responsible for ensuring they have the right to play the content they request. We comply with DMCA takedown requests and will remove access to infringing content when properly notified.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>6. Availability and Uptime</h2>
+                            <p>While we strive to maintain 99.9% uptime, we do not guarantee uninterrupted service. The Bot may be temporarily unavailable due to maintenance, updates, or circumstances beyond our control.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>7. Limitation of Liability</h2>
+                            <p>The Bot is provided "as is" without warranties of any kind. We are not liable for any damages arising from the use or inability to use the Bot.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>8. Changes to Terms</h2>
+                            <p>We reserve the right to modify these terms at any time. Continued use of the Bot after changes constitutes acceptance of the new terms.</p>
+                        </div>
+
+                        <div class="tos-section">
+                            <h2>9. Contact</h2>
+                            <p>For questions about these terms, please contact us through our support server or email at support@alfarrizi.bot</p>
+                        </div>
+
+                        <div class="tos-footer">
+                            <p><strong>Last Updated:</strong> January 2025</p>
+                            <p><strong>Version:</strong> 2.1</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Support Page -->
+            <section class="page" id="page-support">
+                <div class="page-header">
+                    <h1><i data-feather="life-buoy"></i> Support</h1>
+                    <p>Get help and connect with our community</p>
+                </div>
+
+                <div class="support-grid">
+                    <div class="support-card glass-card">
+                        <div class="support-icon discord">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                             </svg>
-                            <div class="gauge-value">
-                                <span class="mono" id="memoryPercent">--</span>
-                                <span class="unit">%</span>
-                            </div>
                         </div>
-                        <div class="memory-status" id="memoryStatus">--</div>
-                    </div>
-                    <div class="memory-details">
-                        <div class="mem-row">
-                            <span>Used</span>
-                            <span class="mono" id="memUsed">-- MB</span>
-                        </div>
-                        <div class="mem-row">
-                            <span>Free</span>
-                            <span class="mono" id="memFree">-- GB</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CPU Load -->
-            <div class="card cpu-card">
-                <div class="card-header">
-                    <div class="card-icon cpu">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="4" y="4" width="16" height="16" rx="2"/>
-                            <rect x="9" y="9" width="6" height="6"/>
-                            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>
-                        </svg>
-                    </div>
-                    <h2>CPU Load</h2>
-                </div>
-                <div class="card-body">
-                    <div class="cpu-bars">
-                        <div class="cpu-section">
-                            <span class="cpu-label">Lavalink</span>
-                            <div class="bar-container">
-                                <div class="bar-fill" id="cpuLavalinkBar"></div>
-                            </div>
-                            <span class="cpu-value mono" id="cpuLavalink">--%</span>
-                        </div>
-                        <div class="cpu-section">
-                            <span class="cpu-label">System</span>
-                            <div class="bar-container">
-                                <div class="bar-fill" id="cpuSystemBar"></div>
-                            </div>
-                            <span class="cpu-value mono" id="cpuSystem">--%</span>
-                        </div>
-                    </div>
-                    <div class="cpu-cores">
-                        <span>Cores:</span>
-                        <span class="mono" id="cpuCores">--</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Players Stats -->
-        <section class="players-section">
-            <div class="card players-card">
-                <div class="card-header">
-                    <div class="card-icon players">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                            <circle cx="9" cy="7" r="4"/>
-                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                        </svg>
-                    </div>
-                    <h2>Player Statistics</h2>
-                </div>
-                <div class="card-body">
-                    <div class="players-grid">
-                        <div class="player-stat">
-                            <span class="player-value mono" id="playersTotal">--</span>
-                            <span class="player-label">Total</span>
-                        </div>
-                        <div class="player-stat">
-                            <span class="player-value mono" id="playersPlaying">--</span>
-                            <span class="player-label">Playing</span>
-                        </div>
-                        <div class="player-stat">
-                            <span class="player-value mono" id="playersIdle">--</span>
-                            <span class="player-label">Idle</span>
-                        </div>
-                        <div class="player-stat">
-                            <span class="player-value mono" id="playersActivity">--%</span>
-                            <span class="player-label">Activity</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Endpoints & Features Section -->
-        <section class="features-section">
-            <div class="card endpoints-card">
-                <div class="card-header">
-                    <div class="card-icon endpoints">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="2" y1="12" x2="22" y2="12"/>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
-                    </div>
-                    <h2>Endpoints Status</h2>
-                </div>
-                <div class="card-body">
-                    <div class="endpoints-grid" id="endpointsGrid">
-                        <!-- Dynamic content -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- SOURCE MANAGERS -->
-            <div class="card sources-card">
-                <div class="card-header">
-                    <div class="card-icon sources">
-                        <img src="https://cdn3.emoji.gg/emojis/7024_windos_mediaPlayer.png" alt="Sources" class="emoji-icon">
-                    </div>
-                    <h2>Source Managers</h2>
-                    <div class="source-count" id="sourceCount">0</div>
-                </div>
-                <div class="card-body">
-                    <div class="sources-container" id="sourcesContainer">
-                        <!-- Dynamic content -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- FILTER MUSIC -->
-            <div class="card filters-card">
-                <div class="card-header">
-                    <div class="card-icon filters">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"/>
-                        </svg>
-                    </div>
-                    <h2>Audio Filters</h2>
-                    <div class="filter-count" id="filterCount">0</div>
-                </div>
-                <div class="card-body">
-                    <div class="filters-container" id="filtersContainer">
-                        <!-- Dynamic content -->
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Now Playing Section -->
-        <section class="now-playing-section">
-            <div class="card now-playing-card">
-                <div class="card-header">
-                    <div class="card-icon playing">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M9 18V5l12-2v13"/>
-                            <circle cx="6" cy="18" r="3"/>
-                            <circle cx="18" cy="16" r="3"/>
-                        </svg>
-                    </div>
-                    <h2>Now Playing</h2>
-                    <div class="player-count" id="playerCountBadge">0 Active</div>
-                </div>
-                <div class="card-body">
-                    <div class="tracks-container" id="tracksContainer">
-                        <div class="empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;opacity:0.5">
-                                <circle cx="12" cy="12" r="10"/>
-                                <path d="M8 12h8M12 8v8"/>
+                        <h3>Discord Support Server</h3>
+                        <p>Join our community for real-time help, announcements, and discussions</p>
+                        <a href="https://discord.gg/example" target="_blank" class="support-btn discord-btn">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                             </svg>
-                            <span>No track playing</span>
+                            Join Server
+                        </a>
+                    </div>
+
+                    <div class="support-card glass-card">
+                        <div class="support-icon docs">
+                            <i data-feather="book-open"></i>
+                        </div>
+                        <h3>Documentation</h3>
+                        <p>Comprehensive guides, tutorials, and API references</p>
+                        <a href="https://docs.alfarrizi.bot" target="_blank" class="support-btn docs-btn">
+                            <i data-feather="external-link"></i>
+                            View Docs
+                        </a>
+                    </div>
+
+                    <div class="support-card glass-card">
+                        <div class="support-icon github">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                        </div>
+                        <h3>GitHub Repository</h3>
+                        <p>View source code, report issues, and contribute</p>
+                        <a href="https://github.com/alfarrizi/music-bot" target="_blank" class="support-btn github-btn">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                            View on GitHub
+                        </a>
+                    </div>
+                </div>
+
+                <div class="faq-section glass-card">
+                    <h2><i data-feather="help-circle"></i> Frequently Asked Questions</h2>
+                    <div class="faq-list">
+                        <div class="faq-item" onclick="toggleFAQ(this)">
+                            <div class="faq-question">
+                                <span>How do I add the bot to my server?</span>
+                                <i data-feather="chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Click the "Invite Bot" button on our website or use the invite link in our Discord server. You'll need "Manage Server" permissions to add the bot.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item" onclick="toggleFAQ(this)">
+                            <div class="faq-question">
+                                <span>Why isn't the bot playing music?</span>
+                                <i data-feather="chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Make sure you're in a voice channel, the bot has permissions to join and speak, and there are no region restrictions on the content you're trying to play.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item" onclick="toggleFAQ(this)">
+                            <div class="faq-question">
+                                <span>How can I change the bot's prefix?</span>
+                                <i data-feather="chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Server administrators can use the <code>/setprefix</code> command to change the bot's prefix for their server.</p>
+                            </div>
+                        </div>
+                        <div class="faq-item" onclick="toggleFAQ(this)">
+                            <div class="faq-question">
+                                <span>Is the bot free to use?</span>
+                                <i data-feather="chevron-down"></i>
+                            </div>
+                            <div class="faq-answer">
+                                <p>Yes! Al Farrizi Music Bot is completely free to use. We also offer premium features for supporters.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <!-- Footer -->
-        <footer class="footer">
-            <div class="footer-content">
-                <span>Al Farrizi NodeLink Monitor</span>
-                <span class="separator">|</span>
-                <span>Refresh: 1s</span>
-                <span class="separator">|</span>
-                <span class="mono" id="refreshCount">Next: 1s</span>
-            </div>
-        </footer>
+            <!-- Feedback Page -->
+            <section class="page" id="page-feedback">
+                <div class="page-header">
+                    <h1><i data-feather="message-square"></i> Feedback</h1>
+                    <p>We'd love to hear from you! Share your thoughts, suggestions, or report issues</p>
+                </div>
+
+                <div class="feedback-container">
+                    <div class="feedback-form glass-card">
+                        <form id="feedbackForm" onsubmit="submitFeedback(event)">
+                            <div class="form-group">
+                                <label for="feedbackType">Feedback Type</label>
+                                <select id="feedbackType" required>
+                                    <option value="">Select type...</option>
+                                    <option value="suggestion">💡 Suggestion</option>
+                                    <option value="bug">🐛 Bug Report</option>
+                                    <option value="complaint">⚠️ Complaint</option>
+                                    <option value="praise">❤️ Praise</option>
+                                    <option value="other">📝 Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="discordUsername">Discord Username <span class="required">*</span></label>
+                                <input type="text" id="discordUsername" placeholder="e.g., username#1234" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="email">Email <span class="optional">(optional)</span></label>
+                                <input type="email" id="email" placeholder="your@email.com">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="subject">Subject <span class="required">*</span></label>
+                                <input type="text" id="subject" placeholder="Brief summary of your feedback" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="message">Message <span class="required">*</span></label>
+                                <textarea id="message" rows="6" placeholder="Please provide detailed feedback..." required></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="rating">How would you rate your experience?</label>
+                                <div class="star-rating" id="starRating">
+                                    <span class="star" data-rating="1">★</span>
+                                    <span class="star" data-rating="2">★</span>
+                                    <span class="star" data-rating="3">★</span>
+                                    <span class="star" data-rating="4">★</span>
+                                    <span class="star" data-rating="5">★</span>
+                                </div>
+                                <input type="hidden" id="rating" value="0">
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="reset" class="btn-secondary">Clear Form</button>
+                                <button type="submit" class="btn-primary">
+                                    <i data-feather="send"></i>
+                                    Submit Feedback
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="feedback-info glass-card">
+                        <h3>📮 Other Ways to Reach Us</h3>
+                        <div class="contact-methods">
+                            <div class="contact-item">
+                                <i data-feather="mail"></i>
+                                <span>support@alfarrizi.bot</span>
+                            </div>
+                            <div class="contact-item">
+                                <i data-feather="message-circle"></i>
+                                <span>Discord DM: AlFarrizi#0001</span>
+                            </div>
+                            <div class="contact-item">
+                                <i data-feather="twitter"></i>
+                                <span>@AlFarriziBot</span>
+                            </div>
+                        </div>
+
+                        <div class="response-time">
+                            <h4>⏱️ Expected Response Time</h4>
+                            <p>We typically respond within 24-48 hours. For urgent issues, please join our Discord support server.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
     </div>
 
     <script src="script.js"></script>
 </body>
 </html>
-
-
