@@ -127,32 +127,53 @@ body {
     line-height: 1.6;
     min-height: 100vh;
     overflow-x: hidden;
-    background-image: 
-        radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+    position: relative;
+}
+
+/* Background Image Layer */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('https://i.ibb.co.com/DDT24Fzk/140878791-p0.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     background-attachment: fixed;
+    opacity: 0.5; /* 50% opacity */
+    z-index: -2;
+    pointer-events: none;
 }
 
-a {
-    color: inherit;
-    text-decoration: none;
+/* Dark Overlay for better readability */
+body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        135deg,
+        rgba(10, 10, 15, 0.85) 0%,
+        rgba(18, 18, 26, 0.80) 50%,
+        rgba(10, 10, 15, 0.85) 100%
+    );
+    z-index: -1;
+    pointer-events: none;
 }
 
-button {
-    font-family: inherit;
-    cursor: pointer;
-    border: none;
-    outline: none;
-    background: none;
-}
-
-input, textarea, select {
-    font-family: inherit;
-    outline: none;
-}
-
-ul {
-    list-style: none;
+/* Light Theme Background Adjustment */
+[data-theme="light"] body::after {
+    background: linear-gradient(
+        135deg,
+        rgba(245, 245, 247, 0.85) 0%,
+        rgba(255, 255, 255, 0.80) 50%,
+        rgba(245, 245, 247, 0.85) 100%
+    );
 }
 
 /* ============================================
