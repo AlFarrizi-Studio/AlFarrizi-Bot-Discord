@@ -2092,7 +2092,7 @@ ul {
     animation: pulse-dot 2s infinite;
 }
 
-/* Source Checkmark - Rotated -40deg (to the left) */
+/* Source Checkmark - Rotated -20deg (to the left) */
 .source-check {
     width: 36px;
     height: 36px;
@@ -2105,7 +2105,7 @@ ul {
     font-size: 14px;
     flex-shrink: 0;
     box-shadow: 0 0 15px var(--success-glow);
-    transform: rotate(-40deg); /* Rotate 40% to the left */
+    transform: rotate(-20deg); /* Rotate 20% to the left */
     transition: all var(--transition-normal);
 }
 
@@ -2151,7 +2151,7 @@ ul {
     font-weight: 600;
 }
 
-/* Filter Checkmark - Rotated -40deg (to the left) */
+/* Filter Checkmark - Rotated -20deg (to the left) */
 .filter-check {
     width: 32px;
     height: 32px;
@@ -2164,7 +2164,7 @@ ul {
     font-size: 12px;
     flex-shrink: 0;
     box-shadow: 0 0 12px var(--success-glow);
-    transform: rotate(-40deg); /* Rotate 40% to the left */
+    transform: rotate(-20deg); /* Rotate 20% to the left */
     transition: all var(--transition-normal);
 }
 
