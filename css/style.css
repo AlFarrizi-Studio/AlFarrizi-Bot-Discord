@@ -143,7 +143,7 @@ body::before {
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
-    opacity: 0.5; /* 50% opacity */
+    opacity: 0.3; /* 30% opacity */
     z-index: -2;
     pointer-events: none;
 }
