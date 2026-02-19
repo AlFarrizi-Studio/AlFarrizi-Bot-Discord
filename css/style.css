@@ -5570,6 +5570,7 @@ ul {
     transition: all var(--transition-fast);
     margin-top: 1px;
     background: var(--bg-secondary);
+    overflow: visible;
 }
 
 /* Icon centang di dalam custom checkbox */
@@ -5595,6 +5596,25 @@ ul {
 .checkbox-label input[type="checkbox"]:checked+.custom-checkbox i {
     opacity: 1;
     transform: scale(1);
+}
+
+/* Animasi checkbox */
+@keyframes bounceIn {
+    0% {
+        transform: scale(1);
+    }
+
+    40% {
+        transform: scale(1.15);
+    }
+
+    70% {
+        transform: scale(0.95);
+    }
+
+    100% {
+        transform: scale(1);
+    }
 }
 
 /* Teks checkbox */
