@@ -1,7 +1,7 @@
 /* ============================================
    AL FARRIZI MUSIC BOT - DASHBOARD APPLICATION
-   Version: 4.24.2
-   Now Playing Real-time + Discord Webhook Feedback
+   Version: 4.25.0
+   Now Playing Real-time + Discord Webhook Feedback (Professional)
    ============================================ */
 
 // ============================================
@@ -203,9 +203,9 @@ function updateProgressLocally() {
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎵 Al Farrizi Music Bot Dashboard v4.24.2');
+    console.log('🎵 Al Farrizi Music Bot Dashboard v4.25.0');
     console.log('📡 API:', CONFIG.API_ENDPOINT);
-    console.log('💬 Discord Webhook: Enabled');
+    console.log('💬 Discord Webhook: Enabled (Professional)');
     console.log('⏱️ Refresh Rate:', CONFIG.REFRESH_INTERVAL + 'ms');
     console.log('🎬 Progress Update:', CONFIG.PROGRESS_UPDATE_INTERVAL + 'ms');
     
@@ -1320,7 +1320,7 @@ function initFAQ() {
 }
 
 // ============================================
-// FEEDBACK FORM WITH DISCORD WEBHOOK
+// FEEDBACK FORM WITH DISCORD WEBHOOK (PROFESSIONAL)
 // ============================================
 function initFeedbackForm() {
     if (elements.feedbackForm) {
@@ -1340,76 +1340,149 @@ function submitFeedbackToDiscord(form) {
     var emailInput = form.querySelector('input[type="email"], input[name="email"], #feedbackEmail');
     var typeSelect = form.querySelector('select, #feedbackType');
     var messageTextarea = form.querySelector('textarea, #feedbackMessage');
-    var anonymousCheckbox = form.querySelector('input[type="checkbox"], #feedbackAnonymous');
+    var agreeCheckbox = form.querySelector('input[type="checkbox"], #feedbackAgree');
     
-    var name = nameInput ? nameInput.value.trim() : 'Anonymous';
-    var email = emailInput ? emailInput.value.trim() : 'Not provided';
+    var name = nameInput ? nameInput.value.trim() : '';
+    var email = emailInput ? emailInput.value.trim() : '';
     var feedbackType = typeSelect ? typeSelect.value : 'general';
     var message = messageTextarea ? messageTextarea.value.trim() : '';
-    var isAnonymous = anonymousCheckbox ? anonymousCheckbox.checked : false;
+    var hasAgreed = agreeCheckbox ? agreeCheckbox.checked : false;
     
-    // Validation
-    if (!message) {
-        showToast('Error', 'Please enter your feedback message', 'error');
+    // ============================================
+    // VALIDATION
+    // ============================================
+    
+    // Name validation
+    if (!name) {
+        showToast('Missing Name', 'Please enter your name', 'error');
+        if (nameInput) nameInput.focus();
         return;
     }
     
-    // Update button state
+    if (name.length < 2) {
+        showToast('Invalid Name', 'Name must be at least 2 characters', 'error');
+        if (nameInput) nameInput.focus();
+        return;
+    }
+    
+    // Email validation
+    if (!email) {
+        showToast('Missing Email', 'Please enter your email address', 'error');
+        if (emailInput) emailInput.focus();
+        return;
+    }
+    
+    if (!isValidEmail(email)) {
+        showToast('Invalid Email', 'Please enter a valid email address (e.g., user@example.com)', 'error');
+        if (emailInput) emailInput.focus();
+        return;
+    }
+    
+    // Message validation
+    if (!message) {
+        showToast('Missing Message', 'Please enter your feedback message', 'error');
+        if (messageTextarea) messageTextarea.focus();
+        return;
+    }
+    
+    if (message.length < 10) {
+        showToast('Message Too Short', 'Please provide more details (at least 10 characters)', 'error');
+        if (messageTextarea) messageTextarea.focus();
+        return;
+    }
+    
+    // Agreement checkbox validation
+    if (!hasAgreed) {
+        showToast('Agreement Required', 'Please agree to be contacted regarding this feedback', 'warning');
+        if (agreeCheckbox) agreeCheckbox.focus();
+        return;
+    }
+    
+    // ============================================
+    // UPDATE BUTTON STATE
+    // ============================================
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
     btn.disabled = true;
     
     // Get feedback type info
     var typeInfo = getFeedbackTypeInfo(feedbackType);
+    var deviceInfo = getDeviceInfo();
+    var timestamp = Math.floor(Date.now() / 1000);
     
-    // Build Discord embed
+    // ============================================
+    // BUILD PROFESSIONAL DISCORD EMBED
+    // ============================================
     var embed = {
         title: '📬 New Feedback Received',
+        description: '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
         color: typeInfo.color,
+        thumbnail: {
+            url: 'https://i.ibb.co.com/4RVpMpkM/9348e59a-82c3-4fab-aab4-6e6e01f0fb89.jpg'
+        },
         fields: [
             {
-                name: '👤 From',
-                value: isAnonymous ? '🕵️ Anonymous User' : (name || 'Not provided'),
+                name: '👤 Sender Information',
+                value: [
+                    '```yaml',
+                    'Name  : ' + name,
+                    'Email : ' + email,
+                    '```'
+                ].join('\n'),
+                inline: false
+            },
+            {
+                name: typeInfo.emoji + ' Feedback Type',
+                value: '**' + typeInfo.label + '**',
                 inline: true
             },
             {
-                name: '📧 Email',
-                value: isAnonymous ? '🔒 Hidden (Anonymous)' : (email || 'Not provided'),
+                name: '🕐 Submitted',
+                value: '<t:' + timestamp + ':F>',
                 inline: true
             },
             {
-                name: '📋 Type',
-                value: typeInfo.emoji + ' ' + typeInfo.label,
+                name: '📊 Priority',
+                value: getPriorityBadge(feedbackType),
                 inline: true
             },
             {
                 name: '💬 Message',
-                value: message.length > 1000 ? message.substring(0, 1000) + '...' : message,
+                value: formatMessageForDiscord(message),
+                inline: false
+            },
+            {
+                name: '🖥️ Device & Browser Info',
+                value: [
+                    '```',
+                    deviceInfo.full,
+                    '```'
+                ].join('\n'),
+                inline: false
+            },
+            {
+                name: '✅ Contact Agreement',
+                value: '> User has agreed to be contacted regarding this feedback',
                 inline: false
             }
         ],
         footer: {
-            text: 'Al Farrizi Music Bot Dashboard • Feedback System',
+            text: 'Al Farrizi Music Bot Dashboard • Feedback System v4.25.0',
             icon_url: 'https://i.ibb.co.com/4RVpMpkM/9348e59a-82c3-4fab-aab4-6e6e01f0fb89.jpg'
         },
         timestamp: new Date().toISOString()
     };
     
-    // Add device info
-    var deviceInfo = getDeviceInfo();
-    embed.fields.push({
-        name: '🖥️ Device Info',
-        value: deviceInfo,
-        inline: false
-    });
-    
     // Webhook payload
     var payload = {
         username: 'Al Farrizi Feedback Bot',
         avatar_url: 'https://i.ibb.co.com/4RVpMpkM/9348e59a-82c3-4fab-aab4-6e6e01f0fb89.jpg',
+        content: getWebhookMention(feedbackType),
         embeds: [embed]
     };
     
-    // Send to Discord webhook
+    // ============================================
+    // SEND TO DISCORD WEBHOOK
+    // ============================================
     fetch(CONFIG.DISCORD_WEBHOOK, {
         method: 'POST',
         headers: {
@@ -1419,8 +1492,7 @@ function submitFeedbackToDiscord(form) {
     })
     .then(function(response) {
         if (response.ok || response.status === 204) {
-            // Success
-            showToast('Feedback Sent! ✨', 'Thank you for your feedback. We appreciate it!', 'success');
+            showToast('Feedback Sent! ✨', 'Thank you ' + name + '! We\'ll get back to you soon.', 'success');
             form.reset();
             console.log('✅ Feedback sent to Discord successfully');
         } else {
@@ -1432,62 +1504,238 @@ function submitFeedbackToDiscord(form) {
         showToast('Oops!', 'Failed to send feedback. Please try again later.', 'error');
     })
     .finally(function() {
-        // Restore button
         btn.innerHTML = originalHTML;
         btn.disabled = false;
     });
 }
 
+// ============================================
+// EMAIL VALIDATION
+// ============================================
+function isValidEmail(email) {
+    // Comprehensive email regex pattern
+    var regex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    
+    if (!regex.test(email)) return false;
+    
+    // Additional checks
+    var parts = email.split('@');
+    if (parts.length !== 2) return false;
+    
+    var domain = parts[1];
+    if (!domain.includes('.')) return false;
+    
+    // Check domain extension is at least 2 characters
+    var extension = domain.split('.').pop();
+    if (extension.length < 2) return false;
+    
+    return true;
+}
+
+// ============================================
+// FEEDBACK TYPE INFO
+// ============================================
 function getFeedbackTypeInfo(type) {
     var types = {
-        'general': { label: 'General Feedback', emoji: '💭', color: 0x6366f1 },
-        'bug': { label: 'Bug Report', emoji: '🐛', color: 0xef4444 },
-        'feature': { label: 'Feature Request', emoji: '✨', color: 0x10b981 },
-        'suggestion': { label: 'Suggestion', emoji: '💡', color: 0xf59e0b },
-        'question': { label: 'Question', emoji: '❓', color: 0x3b82f6 },
-        'praise': { label: 'Praise', emoji: '🎉', color: 0x8b5cf6 },
-        'complaint': { label: 'Complaint', emoji: '😞', color: 0xf97316 },
-        'other': { label: 'Other', emoji: '📝', color: 0x6b7280 }
+        'general': { 
+            label: 'General Feedback', 
+            emoji: '💭', 
+            color: 0x6366f1,
+            priority: 'normal'
+        },
+        'bug': { 
+            label: 'Bug Report', 
+            emoji: '🐛', 
+            color: 0xef4444,
+            priority: 'high'
+        },
+        'feature': { 
+            label: 'Feature Request', 
+            emoji: '✨', 
+            color: 0x10b981,
+            priority: 'normal'
+        },
+        'suggestion': { 
+            label: 'Suggestion', 
+            emoji: '💡', 
+            color: 0xf59e0b,
+            priority: 'normal'
+        },
+        'question': { 
+            label: 'Question', 
+            emoji: '❓', 
+            color: 0x3b82f6,
+            priority: 'normal'
+        },
+        'praise': { 
+            label: 'Praise / Thanks', 
+            emoji: '🎉', 
+            color: 0x8b5cf6,
+            priority: 'low'
+        },
+        'complaint': { 
+            label: 'Complaint', 
+            emoji: '😞', 
+            color: 0xf97316,
+            priority: 'high'
+        },
+        'urgent': { 
+            label: 'Urgent Issue', 
+            emoji: '🚨', 
+            color: 0xdc2626,
+            priority: 'critical'
+        },
+        'other': { 
+            label: 'Other', 
+            emoji: '📝', 
+            color: 0x6b7280,
+            priority: 'normal'
+        }
     };
     
     return types[type] || types['general'];
 }
 
+// ============================================
+// PRIORITY BADGE FOR DISCORD
+// ============================================
+function getPriorityBadge(feedbackType) {
+    var typeInfo = getFeedbackTypeInfo(feedbackType);
+    var badges = {
+        'critical': '🔴 **CRITICAL**',
+        'high': '🟠 **HIGH**',
+        'normal': '🟢 **NORMAL**',
+        'low': '🔵 **LOW**'
+    };
+    return badges[typeInfo.priority] || badges['normal'];
+}
+
+// ============================================
+// WEBHOOK MENTION (OPTIONAL)
+// ============================================
+function getWebhookMention(feedbackType) {
+    // Optional: Uncomment and replace with your role ID to ping for urgent/bug reports
+    // var urgentRoleId = 'YOUR_ROLE_ID';
+    
+    var typeInfo = getFeedbackTypeInfo(feedbackType);
+    
+    if (typeInfo.priority === 'critical') {
+        // return '<@&' + urgentRoleId + '> 🚨 **Urgent feedback received!**';
+        return '🚨 **Urgent feedback received!**';
+    } else if (typeInfo.priority === 'high') {
+        return '⚠️ **High priority feedback received!**';
+    }
+    
+    return null; // No content/mention for normal priority
+}
+
+// ============================================
+// FORMAT MESSAGE FOR DISCORD
+// ============================================
+function formatMessageForDiscord(message) {
+    var maxLength = 1000;
+    var truncated = message.length > maxLength;
+    var displayMessage = truncated ? message.substring(0, maxLength) : message;
+    
+    // Escape backticks to prevent markdown issues
+    displayMessage = displayMessage.replace(/`/g, "'");
+    
+    var formatted = '```\n' + displayMessage + (truncated ? '...\n[Message truncated]' : '') + '\n```';
+    
+    if (truncated) {
+        formatted += '\n> ⚠️ *Message was truncated. Full length: ' + message.length + ' characters*';
+    }
+    
+    return formatted;
+}
+
+// ============================================
+// DEVICE INFO (ENHANCED)
+// ============================================
 function getDeviceInfo() {
     var ua = navigator.userAgent;
     var browser = 'Unknown';
+    var browserVersion = '';
     var os = 'Unknown';
+    var osVersion = '';
     
-    // Detect browser
-    if (ua.indexOf('Chrome') > -1 && ua.indexOf('Edg') === -1) {
+    // Detect browser and version
+    if (ua.indexOf('Chrome') > -1 && ua.indexOf('Edg') === -1 && ua.indexOf('OPR') === -1) {
         browser = 'Chrome';
+        var chromeMatch = ua.match(/Chrome\/(\d+)/);
+        if (chromeMatch) browserVersion = chromeMatch[1];
     } else if (ua.indexOf('Safari') > -1 && ua.indexOf('Chrome') === -1) {
         browser = 'Safari';
+        var safariMatch = ua.match(/Version\/(\d+)/);
+        if (safariMatch) browserVersion = safariMatch[1];
     } else if (ua.indexOf('Firefox') > -1) {
         browser = 'Firefox';
+        var firefoxMatch = ua.match(/Firefox\/(\d+)/);
+        if (firefoxMatch) browserVersion = firefoxMatch[1];
     } else if (ua.indexOf('Edg') > -1) {
         browser = 'Edge';
-    } else if (ua.indexOf('Opera') > -1 || ua.indexOf('OPR') > -1) {
+        var edgeMatch = ua.match(/Edg\/(\d+)/);
+        if (edgeMatch) browserVersion = edgeMatch[1];
+    } else if (ua.indexOf('OPR') > -1 || ua.indexOf('Opera') > -1) {
         browser = 'Opera';
+        var operaMatch = ua.match(/(?:OPR|Opera)\/(\d+)/);
+        if (operaMatch) browserVersion = operaMatch[1];
     }
     
     // Detect OS
-    if (ua.indexOf('Windows') > -1) {
+    if (ua.indexOf('Windows NT 10') > -1) {
         os = 'Windows';
-    } else if (ua.indexOf('Mac') > -1) {
+        osVersion = '10/11';
+    } else if (ua.indexOf('Windows NT 6.3') > -1) {
+        os = 'Windows';
+        osVersion = '8.1';
+    } else if (ua.indexOf('Windows NT 6.1') > -1) {
+        os = 'Windows';
+        osVersion = '7';
+    } else if (ua.indexOf('Mac OS X') > -1) {
         os = 'macOS';
-    } else if (ua.indexOf('Linux') > -1) {
-        os = 'Linux';
+        var macMatch = ua.match(/Mac OS X (\d+[._]\d+)/);
+        if (macMatch) osVersion = macMatch[1].replace('_', '.');
     } else if (ua.indexOf('Android') > -1) {
         os = 'Android';
+        var androidMatch = ua.match(/Android (\d+)/);
+        if (androidMatch) osVersion = androidMatch[1];
     } else if (ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) {
         os = 'iOS';
+        var iosMatch = ua.match(/OS (\d+)/);
+        if (iosMatch) osVersion = iosMatch[1];
+    } else if (ua.indexOf('Linux') > -1) {
+        os = 'Linux';
     }
     
-    var screenSize = window.innerWidth + 'x' + window.innerHeight;
-    var isMobile = window.innerWidth <= 768 ? '📱 Mobile' : '🖥️ Desktop';
+    var screenSize = window.screen.width + 'x' + window.screen.height;
+    var viewportSize = window.innerWidth + 'x' + window.innerHeight;
+    var deviceType = window.innerWidth <= 768 ? 'Mobile' : (window.innerWidth <= 1024 ? 'Tablet' : 'Desktop');
+    var deviceEmoji = window.innerWidth <= 768 ? '📱' : '🖥️';
+    var timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown';
+    var language = navigator.language || 'Unknown';
     
-    return isMobile + ' • ' + os + ' • ' + browser + ' • ' + screenSize;
+    // Build full info string
+    var fullInfo = [
+        'Device    : ' + deviceEmoji + ' ' + deviceType,
+        'OS        : ' + os + (osVersion ? ' ' + osVersion : ''),
+        'Browser   : ' + browser + (browserVersion ? ' v' + browserVersion : ''),
+        'Screen    : ' + screenSize,
+        'Viewport  : ' + viewportSize,
+        'Timezone  : ' + timezone,
+        'Language  : ' + language
+    ].join('\n');
+    
+    // Short version for quick display
+    var shortInfo = deviceEmoji + ' ' + deviceType + ' • ' + os + ' • ' + browser;
+    
+    return {
+        full: fullInfo,
+        short: shortInfo,
+        deviceType: deviceType,
+        os: os,
+        browser: browser
+    };
 }
 
 // ============================================
@@ -1631,6 +1879,7 @@ window.dashboard = {
     startProgressTimer: startProgressTimer,
     stopProgressTimer: stopProgressTimer,
     submitFeedbackToDiscord: submitFeedbackToDiscord,
+    isValidEmail: isValidEmail,
 };
 
-console.log('📜 app.js v4.24.2 loaded successfully');
+console.log('📜 app.js v4.25.0 loaded successfully');
