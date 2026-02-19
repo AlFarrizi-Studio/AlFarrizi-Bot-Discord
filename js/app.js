@@ -814,8 +814,6 @@ function createNowPlayingCard(track, index) {
     }
 
     return '<div class="' + cardClass + '" ' + cardAttrs + ' style="animation-delay: ' + (index * 0.1) + 's">' +
-        // Clickable overlay indicator
-        (isClickable ? '<div class="np-click-overlay"><i class="fas fa-external-link-alt"></i><span>Open in ' + capitalize(source) + '</span></div>' : '') +
         '<div class="np-header">' +
         '<div class="np-artwork">' +
         '<img src="' + escapeHtml(artwork) + '" alt="Artwork" onerror="this.src=\'https://via.placeholder.com/90/1a1a25/6366f1?text=♪\'">' +
