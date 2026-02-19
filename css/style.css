@@ -6188,36 +6188,6 @@ ul {
     transform: translateY(-2px) scale(0.99);
 }
 
-/* Click Overlay - Shows on hover */
-.np-click-overlay {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: var(--primary);
-    color: white;
-    font-size: 11px;
-    font-weight: 600;
-    border-radius: 20px;
-    opacity: 0;
-    transform: translateY(-10px);
-    transition: all var(--transition-fast);
-    z-index: 10;
-    pointer-events: none;
-    box-shadow: 0 4px 15px var(--primary-glow);
-}
-
-.np-click-overlay i {
-    font-size: 10px;
-}
-
-.now-playing-card.clickable:hover .np-click-overlay {
-    opacity: 1;
-    transform: translateY(0);
-}
 
 /* Source Row with External Link */
 .np-source-row {
@@ -6313,20 +6283,6 @@ ul {
    NOW PLAYING CLICKABLE - RESPONSIVE
    ============================================ */
 @media (max-width: 768px) {
-    .np-click-overlay {
-        top: 10px;
-        right: 10px;
-        padding: 5px 10px;
-        font-size: 10px;
-    }
-
-    .np-click-overlay span {
-        display: none;
-    }
-
-    .np-click-overlay i {
-        font-size: 12px;
-    }
 
     .np-external-link {
         width: 22px;
@@ -6344,13 +6300,6 @@ ul {
 }
 
 @media (max-width: 576px) {
-    .np-click-overlay {
-        top: 8px;
-        right: 8px;
-        padding: 4px 8px;
-        font-size: 9px;
-        border-radius: 15px;
-    }
 
     .np-external-link {
         width: 20px;
@@ -6368,11 +6317,6 @@ ul {
 }
 
 @media (max-width: 400px) {
-    .np-click-overlay {
-        top: 6px;
-        right: 6px;
-        padding: 3px 6px;
-    }
 
     .np-external-link {
         width: 18px;
@@ -6394,14 +6338,6 @@ ul {
         transform: scale(1);
     }
 
-    .np-click-overlay {
-        opacity: 0.9;
-        transform: translateY(0);
-    }
-
-    .np-click-overlay span {
-        display: none;
-    }
 
     /* Simplify hover effects for touch */
     .now-playing-card.clickable .np-artwork::before,
