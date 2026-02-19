@@ -1,7 +1,7 @@
 /* ============================================
    AL FARRIZI MUSIC BOT - DASHBOARD APPLICATION
-   Version: 4.24.1
-   Now Playing dengan Real-time Progress & Ping
+   Version: 4.24.2
+   Now Playing Real-time + Discord Webhook Feedback
    ============================================ */
 
 // ============================================
@@ -9,8 +9,9 @@
 // ============================================
 const CONFIG = {
     API_ENDPOINT: 'https://unclaiming-fully-camron.ngrok-free.dev/all',
-    REFRESH_INTERVAL: 1000, // 1 second for API data
-    PROGRESS_UPDATE_INTERVAL: 100, // 100ms for smooth progress
+    DISCORD_WEBHOOK: 'https://discord.com/api/webhooks/1473932172648910929/jk235pR-fDDrg5aBN82jFwOYG5RAmbykoiN0VGv2dN4C2pL8afAshpzML85ctq37uHUU',
+    REFRESH_INTERVAL: 1000,
+    PROGRESS_UPDATE_INTERVAL: 100,
     CHART_HISTORY_LENGTH: 30,
     TOAST_DURATION: 4000,
     ANIMATION_DELAY: 100,
@@ -31,10 +32,9 @@ const state = {
     sourcesLoaded: false,
     filtersLoaded: false,
     fetchCount: 0,
-    // Track state untuk Now Playing
     nowPlayingState: {
-        tracks: {}, // { guildId: { position, duration, lastUpdate, isPlaying, ping, connected } }
-        lastTrackIds: [], // untuk detect perubahan track
+        tracks: {},
+        lastTrackIds: [],
     },
 };
 
@@ -172,16 +172,13 @@ function updateProgressLocally() {
         
         if (!track.isPlaying || track.isPaused) return;
         
-        // Hitung elapsed time sejak last update
         var elapsed = now - track.lastUpdate;
         var newPosition = track.position + elapsed;
         
-        // Clamp ke duration
         if (newPosition > track.duration) {
             newPosition = track.duration;
         }
         
-        // Update DOM elements
         var card = document.querySelector('[data-guild-id="' + guildId + '"]');
         if (!card) return;
         
@@ -197,7 +194,6 @@ function updateProgressLocally() {
             currentTimeEl.textContent = formatDuration(newPosition);
         }
         
-        // Update internal position (untuk next iteration)
         track.position = newPosition;
         track.lastUpdate = now;
     });
@@ -207,8 +203,9 @@ function updateProgressLocally() {
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎵 Al Farrizi Music Bot Dashboard v4.24.1');
+    console.log('🎵 Al Farrizi Music Bot Dashboard v4.24.2');
     console.log('📡 API:', CONFIG.API_ENDPOINT);
+    console.log('💬 Discord Webhook: Enabled');
     console.log('⏱️ Refresh Rate:', CONFIG.REFRESH_INTERVAL + 'ms');
     console.log('🎬 Progress Update:', CONFIG.PROGRESS_UPDATE_INTERVAL + 'ms');
     
@@ -220,7 +217,6 @@ document.addEventListener('DOMContentLoaded', function() {
     initFAQ();
     initFeedbackForm();
     
-    // Initialize charts
     waitForChartJS()
         .then(function() {
             initCharts();
@@ -231,7 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.warn('⚠️ Charts unavailable:', err.message);
         });
     
-    // Fetch data and start timers
     fetchData();
     startAutoRefresh();
     startProgressTimer();
@@ -489,11 +484,8 @@ function fetchData() {
         state.lastUpdated = new Date();
         state.fetchCount++;
         
-        // Update real-time data
         updateDashboard(data, serverResponseTime);
         updateStats(data);
-        
-        // Smart update Now Playing (only rebuild if tracks changed)
         smartUpdateNowPlaying(data);
         
         if (!state.sourcesLoaded) {
@@ -671,19 +663,15 @@ function updateStats(data) {
 function smartUpdateNowPlaying(data) {
     var nowPlaying = data.now_playing || [];
     
-    // Update count text
     safeSetText(elements.playingCount, nowPlaying.length + ' track' + (nowPlaying.length !== 1 ? 's' : ''));
     
     if (!elements.nowPlayingContainer) return;
     
-    // Generate current track IDs
     var currentTrackIds = nowPlaying.map(function(track) {
         return getTrackId(track);
     }).sort().join(',');
     
     var previousTrackIds = state.nowPlayingState.lastTrackIds.sort().join(',');
-    
-    // Check if tracks changed (different tracks, not just position update)
     var tracksChanged = currentTrackIds !== previousTrackIds;
     
     if (tracksChanged) {
@@ -693,15 +681,12 @@ function smartUpdateNowPlaying(data) {
             return getTrackId(track);
         });
     } else {
-        // FIXED: Update dynamic data (ping, status) without rebuilding cards
         updateNowPlayingDynamicData(nowPlaying);
     }
     
-    // Always sync position data from API
     syncTrackPositions(nowPlaying);
 }
 
-// NEW: Update dynamic data like Ping and Status without rebuilding
 function updateNowPlayingDynamicData(nowPlaying) {
     nowPlaying.forEach(function(track) {
         var guildId = track.guild_id || '';
@@ -710,28 +695,22 @@ function updateNowPlayingDynamicData(nowPlaying) {
         var card = document.querySelector('[data-guild-id="' + guildId + '"]');
         if (!card) return;
         
-        // Update Ping
         var ping = playback.ping || '--';
         var pingEl = card.querySelector('.np-ping');
         if (pingEl) {
             pingEl.textContent = ping;
         }
         
-        // Update Connection Status
         var connected = playback.connected !== false;
         var isPaused = playback.paused === true;
         var statusEl = card.querySelector('.np-status');
         if (statusEl) {
-            // Update class
             statusEl.className = 'np-status ' + (connected ? 'connected' : 'disconnected');
-            
-            // Update content
             var statusIcon = connected ? 'fa-check-circle' : 'fa-times-circle';
             var statusText = isPaused ? 'Paused' : (connected ? 'Playing' : 'Disconnected');
             statusEl.innerHTML = '<i class="fas ' + statusIcon + '"></i> ' + statusText;
         }
         
-        // Update playing indicator icon (play/pause)
         var indicatorEl = card.querySelector('.np-playing-indicator i');
         if (indicatorEl) {
             indicatorEl.className = 'fas ' + (isPaused ? 'fa-pause' : 'fa-play');
@@ -742,7 +721,6 @@ function updateNowPlayingDynamicData(nowPlaying) {
 function rebuildNowPlayingCards(nowPlaying) {
     if (!elements.nowPlayingContainer) return;
     
-    // Clear track state
     state.nowPlayingState.tracks = {};
     
     if (nowPlaying.length === 0) {
@@ -774,7 +752,6 @@ function syncTrackPositions(nowPlaying) {
         var connected = playback.connected !== false;
         var ping = playback.ping || '--';
         
-        // Update or create track state
         state.nowPlayingState.tracks[guildId] = {
             position: positionRaw,
             duration: durationRaw,
@@ -786,7 +763,6 @@ function syncTrackPositions(nowPlaying) {
         };
     });
     
-    // Remove tracks yang sudah tidak ada
     var activeGuildIds = nowPlaying.map(function(t) { return t.guild_id || ''; });
     Object.keys(state.nowPlayingState.tracks).forEach(function(guildId) {
         if (activeGuildIds.indexOf(guildId) === -1) {
@@ -815,7 +791,6 @@ function createNowPlayingCard(track, index) {
     var connected = playback.connected !== false;
     var isPaused = playback.paused === true;
     
-    // Store initial state
     state.nowPlayingState.tracks[guildId] = {
         position: positionRaw,
         duration: durationRaw,
@@ -826,7 +801,6 @@ function createNowPlayingCard(track, index) {
         connected: connected,
     };
     
-    // FIXED: Added class "np-ping" to ping span for real-time update
     return '<div class="now-playing-card animate-fade-in-up" data-guild-id="' + escapeHtml(guildId) + '" style="animation-delay: ' + (index * 0.1) + 's">' +
         '<div class="np-header">' +
             '<div class="np-artwork">' +
@@ -1346,28 +1320,174 @@ function initFAQ() {
 }
 
 // ============================================
-// FEEDBACK FORM
+// FEEDBACK FORM WITH DISCORD WEBHOOK
 // ============================================
 function initFeedbackForm() {
     if (elements.feedbackForm) {
         elements.feedbackForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            var btn = e.target.querySelector('.submit-btn');
-            var originalHTML = btn.innerHTML;
-            
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-            btn.disabled = true;
-            
-            setTimeout(function() {
-                showToast('Feedback Sent!', 'Thank you for your feedback. We appreciate it!', 'success');
-                e.target.reset();
-                
-                btn.innerHTML = originalHTML;
-                btn.disabled = false;
-            }, 1500);
+            submitFeedbackToDiscord(e.target);
         });
     }
+}
+
+function submitFeedbackToDiscord(form) {
+    var btn = form.querySelector('.submit-btn');
+    var originalHTML = btn.innerHTML;
+    
+    // Get form data
+    var nameInput = form.querySelector('input[type="text"], input[name="name"], #feedbackName');
+    var emailInput = form.querySelector('input[type="email"], input[name="email"], #feedbackEmail');
+    var typeSelect = form.querySelector('select, #feedbackType');
+    var messageTextarea = form.querySelector('textarea, #feedbackMessage');
+    var anonymousCheckbox = form.querySelector('input[type="checkbox"], #feedbackAnonymous');
+    
+    var name = nameInput ? nameInput.value.trim() : 'Anonymous';
+    var email = emailInput ? emailInput.value.trim() : 'Not provided';
+    var feedbackType = typeSelect ? typeSelect.value : 'general';
+    var message = messageTextarea ? messageTextarea.value.trim() : '';
+    var isAnonymous = anonymousCheckbox ? anonymousCheckbox.checked : false;
+    
+    // Validation
+    if (!message) {
+        showToast('Error', 'Please enter your feedback message', 'error');
+        return;
+    }
+    
+    // Update button state
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    btn.disabled = true;
+    
+    // Get feedback type info
+    var typeInfo = getFeedbackTypeInfo(feedbackType);
+    
+    // Build Discord embed
+    var embed = {
+        title: '📬 New Feedback Received',
+        color: typeInfo.color,
+        fields: [
+            {
+                name: '👤 From',
+                value: isAnonymous ? '🕵️ Anonymous User' : (name || 'Not provided'),
+                inline: true
+            },
+            {
+                name: '📧 Email',
+                value: isAnonymous ? '🔒 Hidden (Anonymous)' : (email || 'Not provided'),
+                inline: true
+            },
+            {
+                name: '📋 Type',
+                value: typeInfo.emoji + ' ' + typeInfo.label,
+                inline: true
+            },
+            {
+                name: '💬 Message',
+                value: message.length > 1000 ? message.substring(0, 1000) + '...' : message,
+                inline: false
+            }
+        ],
+        footer: {
+            text: 'Al Farrizi Music Bot Dashboard • Feedback System',
+            icon_url: 'https://i.ibb.co.com/4RVpMpkM/9348e59a-82c3-4fab-aab4-6e6e01f0fb89.jpg'
+        },
+        timestamp: new Date().toISOString()
+    };
+    
+    // Add device info
+    var deviceInfo = getDeviceInfo();
+    embed.fields.push({
+        name: '🖥️ Device Info',
+        value: deviceInfo,
+        inline: false
+    });
+    
+    // Webhook payload
+    var payload = {
+        username: 'Al Farrizi Feedback Bot',
+        avatar_url: 'https://i.ibb.co.com/4RVpMpkM/9348e59a-82c3-4fab-aab4-6e6e01f0fb89.jpg',
+        embeds: [embed]
+    };
+    
+    // Send to Discord webhook
+    fetch(CONFIG.DISCORD_WEBHOOK, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(function(response) {
+        if (response.ok || response.status === 204) {
+            // Success
+            showToast('Feedback Sent! ✨', 'Thank you for your feedback. We appreciate it!', 'success');
+            form.reset();
+            console.log('✅ Feedback sent to Discord successfully');
+        } else {
+            throw new Error('HTTP ' + response.status);
+        }
+    })
+    .catch(function(error) {
+        console.error('❌ Failed to send feedback:', error);
+        showToast('Oops!', 'Failed to send feedback. Please try again later.', 'error');
+    })
+    .finally(function() {
+        // Restore button
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    });
+}
+
+function getFeedbackTypeInfo(type) {
+    var types = {
+        'general': { label: 'General Feedback', emoji: '💭', color: 0x6366f1 },
+        'bug': { label: 'Bug Report', emoji: '🐛', color: 0xef4444 },
+        'feature': { label: 'Feature Request', emoji: '✨', color: 0x10b981 },
+        'suggestion': { label: 'Suggestion', emoji: '💡', color: 0xf59e0b },
+        'question': { label: 'Question', emoji: '❓', color: 0x3b82f6 },
+        'praise': { label: 'Praise', emoji: '🎉', color: 0x8b5cf6 },
+        'complaint': { label: 'Complaint', emoji: '😞', color: 0xf97316 },
+        'other': { label: 'Other', emoji: '📝', color: 0x6b7280 }
+    };
+    
+    return types[type] || types['general'];
+}
+
+function getDeviceInfo() {
+    var ua = navigator.userAgent;
+    var browser = 'Unknown';
+    var os = 'Unknown';
+    
+    // Detect browser
+    if (ua.indexOf('Chrome') > -1 && ua.indexOf('Edg') === -1) {
+        browser = 'Chrome';
+    } else if (ua.indexOf('Safari') > -1 && ua.indexOf('Chrome') === -1) {
+        browser = 'Safari';
+    } else if (ua.indexOf('Firefox') > -1) {
+        browser = 'Firefox';
+    } else if (ua.indexOf('Edg') > -1) {
+        browser = 'Edge';
+    } else if (ua.indexOf('Opera') > -1 || ua.indexOf('OPR') > -1) {
+        browser = 'Opera';
+    }
+    
+    // Detect OS
+    if (ua.indexOf('Windows') > -1) {
+        os = 'Windows';
+    } else if (ua.indexOf('Mac') > -1) {
+        os = 'macOS';
+    } else if (ua.indexOf('Linux') > -1) {
+        os = 'Linux';
+    } else if (ua.indexOf('Android') > -1) {
+        os = 'Android';
+    } else if (ua.indexOf('iPhone') > -1 || ua.indexOf('iPad') > -1) {
+        os = 'iOS';
+    }
+    
+    var screenSize = window.innerWidth + 'x' + window.innerHeight;
+    var isMobile = window.innerWidth <= 768 ? '📱 Mobile' : '🖥️ Desktop';
+    
+    return isMobile + ' • ' + os + ' • ' + browser + ' • ' + screenSize;
 }
 
 // ============================================
@@ -1510,6 +1630,7 @@ window.dashboard = {
     stopAutoRefresh: stopAutoRefresh,
     startProgressTimer: startProgressTimer,
     stopProgressTimer: stopProgressTimer,
+    submitFeedbackToDiscord: submitFeedbackToDiscord,
 };
 
-console.log('📜 app.js v4.24.1 loaded successfully');
+console.log('📜 app.js v4.24.2 loaded successfully');
