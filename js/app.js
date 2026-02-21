@@ -130,14 +130,14 @@ function startAutoRefresh() {
         fetchData();
     }, CONFIG.REFRESH_INTERVAL);
 
-    console.log('⏱️ Auto-refresh started (' + CONFIG.REFRESH_INTERVAL + 'ms)');
+
 }
 
 function stopAutoRefresh() {
     if (state.refreshInterval) {
         clearInterval(state.refreshInterval);
         state.refreshInterval = null;
-        console.log('⏱️ Auto-refresh stopped');
+
     }
 }
 
@@ -153,14 +153,14 @@ function startProgressTimer() {
         updateProgressLocally();
     }, CONFIG.PROGRESS_UPDATE_INTERVAL);
 
-    console.log('⏱️ Progress timer started (' + CONFIG.PROGRESS_UPDATE_INTERVAL + 'ms)');
+
 }
 
 function stopProgressTimer() {
     if (state.progressInterval) {
         clearInterval(state.progressInterval);
         state.progressInterval = null;
-        console.log('⏱️ Progress timer stopped');
+
     }
 }
 
@@ -203,11 +203,7 @@ function updateProgressLocally() {
 // INITIALIZATION
 // ============================================
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('🎵 Al Farrizi Music Bot Dashboard v4.25.0');
-    console.log('📡 API:', CONFIG.API_ENDPOINT);
-    console.log('💬 Discord Webhook: Enabled (Professional)');
-    console.log('⏱️ Refresh Rate:', CONFIG.REFRESH_INTERVAL + 'ms');
-    console.log('🎬 Progress Update:', CONFIG.PROGRESS_UPDATE_INTERVAL + 'ms');
+
 
     initElements();
     initTheme();
@@ -221,17 +217,17 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function () {
             initCharts();
             state.chartsInitialized = true;
-            console.log('📊 Charts ready');
+
         })
         .catch(function (err) {
-            console.warn('⚠️ Charts unavailable:', err.message);
+
         });
 
     fetchData();
     startAutoRefresh();
     startProgressTimer();
 
-    console.log('✅ Dashboard initialized');
+
 });
 
 function waitForChartJS(timeout) {
@@ -491,13 +487,13 @@ function fetchData() {
             if (!state.sourcesLoaded) {
                 updateSources(data);
                 state.sourcesLoaded = true;
-                console.log('📦 Sources loaded (one-time)');
+
             }
 
             if (!state.filtersLoaded) {
                 updateFilters(data);
                 state.filtersLoaded = true;
-                console.log('🎛️ Filters loaded (one-time)');
+
             }
 
             if (state.chartsInitialized) {
@@ -505,7 +501,7 @@ function fetchData() {
             }
         })
         .catch(function (error) {
-            console.error('❌ Fetch error:', error.message);
+
             state.isOnline = false;
             updateOfflineState();
         });
@@ -675,7 +671,7 @@ function smartUpdateNowPlaying(data) {
     var tracksChanged = currentTrackIds !== previousTrackIds;
 
     if (tracksChanged) {
-        console.log('🎵 Tracks changed, rebuilding Now Playing cards');
+
         rebuildNowPlayingCards(nowPlaying);
         state.nowPlayingState.lastTrackIds = nowPlaying.map(function (track) {
             return getTrackId(track);
@@ -1946,4 +1942,3 @@ window.dashboard = {
 // Also expose globally for onclick
 window.openTrackUrl = openTrackUrl;
 
-console.log('📜 app.js v4.25.0 loaded successfully');
