@@ -132,7 +132,7 @@ function updateMaintenanceState() {
         if (text) text.textContent = 'Maintenance';
     }
 
-    safeSetText(elements.lastUpdated, 'Maintenance mode');
+    safeSetText(elements.lastUpdated, '');
     safeSetText(elements.apiStatus, 'Maintenance');
     safeSetText(elements.responseTime, '--ms');
     safeSetText(elements.playingCount, 'Maintenance');
